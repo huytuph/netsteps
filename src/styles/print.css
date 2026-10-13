@@ -1,0 +1,153 @@
+@media print {
+  :root,
+  :root[data-theme='dark'] {
+    --bg: #fff;
+    --panel: #fff;
+    --surface2: #fff;
+    --text: #000;
+    --muted: #444;
+    --line: #ccc;
+    --accent: #055b91;
+    --accent-dark: #055b91;
+    --accent-soft: #fff;
+    color-scheme: light;
+  }
+  .sidebar,
+  .topbar,
+  .app-header,
+  .tabs,
+  .utility-actions,
+  .output-actions,
+  .save-scenario,
+  .form-actions,
+  .row-actions,
+  .hint-actions,
+  .skip,
+  footer,
+  .privacy-note,
+  .notice,
+  .check,
+  #preferences,
+  .hero-actions {
+    display: none !important;
+  }
+  .shell {
+    margin: 0 !important;
+    min-height: 0 !important;
+    display: block !important;
+  }
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+  .page-heading {
+    margin: 0 0 20px !important;
+  }
+  .eyebrow {
+    display: none;
+  }
+  .workspace-grid,
+  .dashboard-lists,
+  .settings-grid {
+    display: block !important;
+  }
+  .panel {
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 12px 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+  .input-panel {
+    border-bottom: 1px solid #aaa !important;
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .field {
+    margin-bottom: 9px !important;
+  }
+  .field input,
+  .field textarea,
+  .field select {
+    background: #fff !important;
+    border: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    color: #000 !important;
+    appearance: none !important;
+  }
+  .field small {
+    display: none;
+  }
+  .explanation-controls {
+    display: none !important;
+  }
+  .steps li {
+    break-inside: avoid;
+  }
+  .steps pre,
+  .command {
+    background: #fff !important;
+    color: #000 !important;
+    padding: 5px !important;
+  }
+  .why {
+    border: 0 !important;
+    padding: 0 !important;
+  }
+  .table-scroll {
+    overflow: visible !important;
+    border: 0 !important;
+  }
+  table {
+    font-size: 8px !important;
+  }
+  td,
+  th {
+    white-space: normal !important;
+    padding: 5px !important;
+  }
+  thead {
+    display: table-header-group;
+  }
+  .metrics {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .metrics > div {
+    break-inside: avoid;
+  }
+  .metrics dd {
+    font-size: 11px !important;
+  }
+  .panel-heading {
+    margin: 10px 0 !important;
+  }
+  .result-panel {
+    display: block !important;
+  }
+  .warnings {
+    background: #fff !important;
+    color: #000 !important;
+    border: 1px solid #ccc !important;
+  }
+  .tool-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+  .hero {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .hero p {
+    color: #000 !important;
+  }
+  .network-visual {
+    display: none !important;
+  }
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+}
