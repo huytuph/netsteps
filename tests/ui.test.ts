@@ -285,6 +285,159 @@ describe('application workflows', () => {
     await Promise.resolve();
     await Promise.resolve();
   }
+  it('preserves uncalculated input through backup import and later navigation', async () => {
+    nav('Number Systems');
+    input('input', '567');
+    await importText(JSON.stringify(defaults()));
+    expect(value('input')).toBe('567');
+    nav('Subnetting');
+    nav('Number Systems');
+    expect(value('input')).toBe('567');
+    expect(document.querySelector('.final-panel')).toBeNull();
+  });
+  it('preserves row edits through backup import', async () => {
+    nav('IPv6');
+    input('mode', 'plan', true);
+    input('base', '2001:db8::/48');
+    input('r-0-name', 'LAN A');
+    input('r-0-prefix', '64');
+    click('[data-action="add-row"]');
+    input('r-1-name', 'LAN B');
+    input('r-1-prefix', '64');
+    await importText(JSON.stringify(defaults()));
+    expect(value('base')).toBe('2001:db8::/48');
+    expect(value('r-0-name')).toBe('LAN A');
+    expect(value('r-1-name')).toBe('LAN B');
+    expect(document.querySelectorAll('[data-row]')).toHaveLength(2);
+    submit();
+    expect(query('.final-panel').textContent).toContain('2001:db8:0:1::/64');
+  });
+  it('preserves edits and navigation made while an import is reading', async () => {
+    nav('Number Systems');
+    input('input', '567');
+    let finish!: (text: string) => void;
+    const text = new Promise<string>((resolve) => {
+      finish = resolve;
+    });
+    Object.defineProperty(query('#import-file'), 'files', {
+      value: [{ size: 100, text: () => text }],
+      configurable: true,
+    });
+    query('#import-file').dispatchEvent(new Event('change', { bubbles: true }));
+    input('input', '568');
+    nav('Subnetting');
+    input('ip', '192.0.2.42');
+    input('prefix', '27');
+    finish(JSON.stringify(defaults()));
+    await text;
+    await Promise.resolve();
+    expect(query('.page-title').textContent).toBe('Subnetting');
+    expect(value('ip')).toBe('192.0.2.42');
+    expect(value('prefix')).toBe('27');
+    nav('Number Systems');
+    expect(value('input')).toBe('568');
+  });
+  it('does not finish an import after the application is unmounted', async () => {
+    let finish!: (text: string) => void;
+    const text = new Promise<string>((resolve) => {
+      finish = resolve;
+    });
+    Object.defineProperty(query('#import-file'), 'files', {
+      value: [{ size: 100, text: () => text }],
+      configurable: true,
+    });
+    query('#import-file').dispatchEvent(new Event('change', { bubbles: true }));
+    stop();
+    finish(JSON.stringify(defaults()));
+    await text;
+    await Promise.resolve();
+    expect(query('#app').innerHTML).toBe('');
+    expect(localStorage.getItem('network-study-toolkit-v1')).toBeNull();
+  });
+  it('processes each input once after repeated rendering and removes listeners on unmount', () => {
+    stop();
+    let calls = 0;
+    const original = EventTarget.prototype.addEventListener;
+    const remove = EventTarget.prototype.removeEventListener;
+    const wrappers = new WeakMap<EventListenerOrEventListenerObject, EventListener>();
+    vi.spyOn(EventTarget.prototype, 'addEventListener').mockImplementation(function (
+      this: EventTarget,
+      type: string,
+      listener: EventListenerOrEventListenerObject | null,
+      options?: boolean | AddEventListenerOptions,
+    ) {
+      if (
+        this instanceof HTMLElement &&
+        ['app', 'result'].includes(this.id) &&
+        type === 'input' &&
+        listener
+      ) {
+        const wrapped = function (this: EventTarget, event: Event) {
+          calls++;
+          if (typeof listener === 'function') listener.call(this, event);
+          else listener.handleEvent(event);
+        };
+        wrappers.set(listener, wrapped);
+        return original.call(this, type, wrapped, options);
+      }
+      return original.call(this, type, listener, options);
+    });
+    vi.spyOn(EventTarget.prototype, 'removeEventListener').mockImplementation(function (
+      this: EventTarget,
+      type: string,
+      listener: EventListenerOrEventListenerObject | null,
+      options?: boolean | EventListenerOptions,
+    ) {
+      return remove.call(this, type, listener && (wrappers.get(listener) || listener), options);
+    });
+    const root = query<HTMLDivElement>('#app');
+    stop = startApp(root);
+    nav('Number Systems');
+    input('input', '567');
+    submit();
+    for (let i = 0; i < 5; i++) {
+      input('explanation-method', i % 2 ? 'recommended' : 'place', true);
+      input('detail-level', i % 2 ? 'full' : 'standard', true);
+    }
+    calls = 0;
+    input('scenario-name', 'Once');
+    expect(calls).toBe(1);
+    stop();
+    root.innerHTML = '<input name="probe"><button data-tab="Subnetting">Dormant</button>';
+    calls = 0;
+    input('probe', 'ignored');
+    click('[data-tab="Subnetting"]');
+    expect(calls).toBe(0);
+    expect(root.textContent).toBe('Dormant');
+    stop = startApp(root);
+    nav('Number Systems');
+    calls = 0;
+    input('input', '81');
+    expect(calls).toBe(1);
+  });
+  it('handles navigation clicks on nested dashboard content', () => {
+    click('.tool-card[data-tab="Subnetting"] .card-link span');
+    expect(query('.page-title').textContent).toBe('Subnetting');
+  });
+  it('resolves unsupported explanation methods before showing or exporting a new result', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    vi.stubGlobal('isSecureContext', true);
+    nav('Subnetting');
+    input('ip', '192.0.2.42');
+    input('prefix', '27');
+    submit();
+    input('explanation-method', 'and', true);
+    input('mode', 'hosts', true);
+    input('hosts', '22');
+    submit();
+    expect(value('explanation-method')).toBe('recommended');
+    click('[data-action="copy-markdown"]');
+    await Promise.resolve();
+    expect(writeText).toHaveBeenCalledWith(
+      expect.stringContaining('Manual working (Recommended / Easiest)'),
+    );
+  });
   it('imports version-1 saves and applies preferences through the file input', async () => {
     const incoming = defaults();
     incoming.preferences.theme = 'dark';

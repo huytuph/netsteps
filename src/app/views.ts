@@ -1,12 +1,12 @@
 import { button, checkbox, esc, field, select, table } from '../components/ui';
-import { methodLabels, methodWhy } from '../explanations/methods';
+import { methodLabels, methodWhy, resolveMethod } from '../explanations/methods';
 import type { Lesson } from '../explanations/model';
 import { descriptions, formFields } from '../pages/forms';
 import type { AppState, Draft } from './state';
 import type { Entry } from './storage';
 import { tabs } from './storage';
 import { toolMetadata } from './tools';
-export function createViews(state: AppState, data: () => Draft) {
+export function createViews(state: Readonly<AppState>, data: () => Draft) {
   function toolbar() {
     return `<div class="utility-actions">${button('export-all', 'Export backup')}${button('import', 'Import')}<input id="import-file" type="file" accept=".json,application/json" hidden></div>`;
   }
@@ -50,12 +50,11 @@ export function createViews(state: AppState, data: () => Draft) {
     const d = data();
     return `<div class="workspace-grid"><section class="panel input-panel"><div class="panel-heading"><span class="step-badge">01</span><div><h2>Your inputs</h2><p>${state.tab === 'Practice' ? 'Choose a topic and difficulty.' : 'Enter actual network values.'}</p></div></div><form id="calculator">${formFields(state.tab, d.values, d.rows)}<div class="form-actions"><button type="submit" class="primary">${state.tab === 'Practice' ? 'Generate question' : 'Calculate & explain'} <span>→</span></button>${button('reset-form', 'Reset inputs')}</div></form><div class="privacy-note">◇ Calculated on your device.</div></section><section id="result" class="result-panel" aria-live="polite">${state.tab === 'Practice' ? practiceOutput() : resultOutput()}</section></div>`;
   }
-  function methodControls(l: Lesson) {
-    if (!l.methods[state.method]) state.method = 'recommended';
+  function methodControls(l: Lesson, method: string) {
     return `<div class="explanation-controls">${select(
       'explanation-method',
       'Explanation method',
-      state.method,
+      method,
       Object.keys(l.methods).map((m) => [m, methodLabels[m] || m]),
     )}${select('detail-level', 'Detail level', state.detail, [
       ['full', 'Full Working'],
@@ -65,13 +64,13 @@ export function createViews(state: AppState, data: () => Draft) {
     ])}</div>`;
   }
   function working(l: Lesson, practice = false) {
-    if (!l.methods[state.method]) state.method = 'recommended';
-    let steps = l.methods[state.method] || l.methods.recommended;
+    const method = resolveMethod(l, state.method);
+    let steps = l.methods[method];
     if (state.detail === 'standard')
       steps = steps.length > 4 ? [steps[0], steps[1], steps.at(-2)!, steps.at(-1)!] : steps;
     if (state.detail === 'exam') steps = steps.length > 2 ? [steps[0], steps.at(-1)!] : steps;
     const hidden = practice || state.hintMode ? steps.slice(0, state.hintCount) : steps;
-    return `${methodControls(l)}${state.detail !== 'final' ? `<div class="why"><strong>Why this method?</strong><p>${esc(methodWhy(l, state.method))}</p></div>${!practice ? checkbox('hint-mode', 'Progressive hint mode', state.hintMode) : ''}${practice || state.hintMode ? `<div class="hint-actions">${button('next-step', 'Show next step')}${button('show-working', 'Show full working')}${button('reveal', 'Reveal answer')}</div>` : ''}<ol class="steps">${hidden.map((s) => `<li><strong>${esc(s.title)}</strong><pre>${esc(s.text)}</pre></li>`).join('')}</ol>${hidden.length === 0 ? '<p class="muted">Use Show next step to begin.</p>' : ''}` : ''}`;
+    return `${methodControls(l, method)}${state.detail !== 'final' ? `<div class="why"><strong>Why this method?</strong><p>${esc(methodWhy(l, method))}</p></div>${!practice ? checkbox('hint-mode', 'Progressive hint mode', state.hintMode) : ''}${practice || state.hintMode ? `<div class="hint-actions">${button('next-step', 'Show next step')}${button('show-working', 'Show full working')}${button('reveal', 'Reveal answer')}</div>` : ''}<ol class="steps">${hidden.map((s) => `<li><strong>${esc(s.title)}</strong><pre>${esc(s.text)}</pre></li>`).join('')}</ol>${hidden.length === 0 ? '<p class="muted">Use Show next step to begin.</p>' : ''}` : ''}`;
   }
   function resultOutput() {
     if (state.error)
@@ -97,10 +96,9 @@ export function createViews(state: AppState, data: () => Draft) {
   function outputText(kind = 'all') {
     if (!state.lesson) return '';
     const l = state.lesson;
+    const method = resolveMethod(l, state.method);
     const metrics = l.metrics.map(([k, v]) => `${k}: ${v}`).join('\n');
-    const steps = (l.methods[state.method] || l.methods.recommended)
-      .map((s, i) => `${i + 1}. ${s.title}\n${s.text}`)
-      .join('\n\n');
+    const steps = l.methods[method].map((s, i) => `${i + 1}. ${s.title}\n${s.text}`).join('\n\n');
     const md =
       l.columns && l.rows
         ? [l.columns, l.columns.map(() => '---'), ...l.rows]
@@ -128,7 +126,7 @@ export function createViews(state: AppState, data: () => Draft) {
                       .join(', '),
                   )
                   .join('\n') || ''
-              }\n\n## Manual working (${methodLabels[state.method]})\n${steps}\n\n## Final result\n${metrics}\n\n${md}\n\n${l.commands ? '```text\n' + l.commands + '\n```' : ''}\n${l.warnings?.join('\n') || ''}`;
+              }\n\n## Manual working (${methodLabels[method]})\n${steps}\n\n## Final result\n${metrics}\n\n${md}\n\n${l.commands ? '```text\n' + l.commands + '\n```' : ''}\n${l.warnings?.join('\n') || ''}`;
   }
   return { toolbar, dashboard, settings, workspacePage, resultOutput, practiceOutput, outputText };
 }

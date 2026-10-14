@@ -2,6 +2,7 @@ import { checkAnswer, makeQuestion, type Topic } from '../calculators/practice';
 import { renderShell } from '../components/shell';
 import { esc, readRows, readValues } from '../components/ui';
 import { questionLesson } from '../explanations/lessons';
+import { resolveMethod } from '../explanations/methods';
 import { calculate } from '../pages/calculate';
 import { descriptions } from '../pages/forms';
 import { createActions } from './actions';
@@ -11,6 +12,7 @@ import { createAppState, resetResult } from './state';
 import { entry, load, persist, validateWorkspace, type Tab } from './storage';
 import { createViews } from './views';
 export function startApp(root: HTMLDivElement) {
+  let disposed = false;
   const loaded = load();
   const state = createAppState(loaded.workspace, loaded.error);
   const drafts = new DraftStore();
@@ -83,6 +85,7 @@ export function startApp(root: HTMLDivElement) {
     window.scrollTo({ top: 0 });
   }
   function render() {
+    prepareResult();
     theme();
     root.innerHTML = renderShell({
       tab: state.tab,
@@ -97,17 +100,20 @@ export function startApp(root: HTMLDivElement) {
             ? settings()
             : workspacePage(),
     });
-    bind();
     updateOffline();
   }
+  function prepareResult() {
+    const lesson = state.tab === 'Practice' ? state.practiceLesson : state.lesson;
+    if (lesson) state.method = resolveMethod(lesson, state.method);
+  }
   function displayResult() {
-    const el = document.querySelector('#result');
+    prepareResult();
+    const el = root.querySelector('#result');
     if (el) {
       el.innerHTML = state.tab === 'Practice' ? practiceOutput() : resultOutput();
       el.querySelectorAll<HTMLInputElement>('#practice-answer input').forEach(
         (input) => (input.value = state.practiceAnswers[input.name] || ''),
       );
-      bindResult();
     }
   }
   function run(record = true) {
@@ -166,123 +172,118 @@ export function startApp(root: HTMLDivElement) {
     }
     displayResult();
   }
-  function bind() {
-    document.querySelectorAll<HTMLElement>('[data-tab]').forEach((el) =>
-      el.addEventListener('click', (e) => {
-        e.preventDefault();
-        nav(el.dataset.tab as Tab);
-      }),
-    );
-    document.querySelector<HTMLFormElement>('#calculator')?.addEventListener('submit', (e) => {
-      e.preventDefault();
+  function onClick(event: MouseEvent) {
+    if (!(event.target instanceof Element)) return;
+    const link = event.target.closest<HTMLElement>('[data-tab]');
+    if (link && root.contains(link)) {
+      event.preventDefault();
+      nav(link.dataset.tab as Tab);
+      return;
+    }
+    const button = event.target.closest<HTMLButtonElement>('button[data-action]');
+    if (button && root.contains(button) && !button.disabled)
+      void act(button).catch((error) => notify((error as Error).message));
+  }
+  function onSubmit(event: SubmitEvent) {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    if (form.id === 'calculator') {
+      event.preventDefault();
       state.tab === 'Practice' ? generate() : run();
-    });
-    document.querySelectorAll<HTMLElement>('[data-mode]').forEach((el) =>
-      el.addEventListener('change', () => {
-        capture();
-        if (el.getAttribute('name') === 'mode')
-          drafts.switchMode(state.tab, (el as HTMLSelectElement).value);
-        resetResult(state);
-        render();
-      }),
-    );
-    document.querySelector('#calculator')?.addEventListener('input', () => {
+    } else if (form.id === 'practice-answer') {
+      event.preventDefault();
+      if (!state.question) return;
+      const values = readValues(form);
+      const matches = state.question.answers.map((answer, i) =>
+        checkAnswer(values[`answer-${i}`] || '', answer.value, state.question!.topic),
+      );
+      state.practiceFeedback = state.question.answers.map(
+        (answer, i) =>
+          `${matches[i] ? '✓' : '✗'} ${answer.label}: ${matches[i] ? 'Correct' : 'Try again, or use a hint.'}`,
+      );
+      if (!state.practiceCounted) {
+        state.workspace.score.attempted++;
+        if (matches.every(Boolean)) state.workspace.score.correct++;
+        state.practiceCounted = true;
+        saveStorage();
+      }
+      root.querySelector('.feedback')!.innerHTML = state.practiceFeedback
+        .map((text) => `<p>${esc(text)}</p>`)
+        .join('');
+    }
+  }
+  function onInput(event: Event) {
+    const input = event.target;
+    if (!(
+      input instanceof HTMLInputElement ||
+      input instanceof HTMLTextAreaElement ||
+      input instanceof HTMLSelectElement
+    ))
+      return;
+    if (input.closest('#calculator')) {
       state.stale = !!state.lesson;
       root.querySelector('#stale')?.classList.remove('hidden');
-    });
-    document.querySelector<HTMLFormElement>('#preferences')?.addEventListener('change', () => {
-      const f = document.querySelector<HTMLFormElement>('#preferences')!;
-      const v = readValues(f);
+    }
+    if (input.name === 'scenario-name') state.scenarioName = input.value;
+    if (input.closest('#practice-answer')) state.practiceAnswers[input.name] = input.value;
+  }
+  function onChange(event: Event) {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement || input instanceof HTMLSelectElement)) return;
+    if (input.matches('[data-mode]')) {
+      capture();
+      if (input.name === 'mode') drafts.switchMode(state.tab, input.value);
+      resetResult(state);
+      render();
+    } else if (input.closest('#preferences')) {
+      const values = readValues(root.querySelector<HTMLFormElement>('#preferences')!);
       state.workspace.preferences = {
-        theme: v.theme as typeof state.workspace.preferences.theme,
-        detail: v.detail as typeof state.detail,
-        method: v.method,
-        history: v.history === 'on',
+        theme: values.theme as typeof state.workspace.preferences.theme,
+        detail: values.detail as typeof state.detail,
+        method: values.method,
+        history: values.history === 'on',
       };
       saveStorage();
       theme();
-    });
-    document
-      .querySelector<HTMLInputElement>('#import-file')
-      ?.addEventListener('change', async (e) => {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (!file) return;
-        try {
-          if (file.size > 5 * 1024 * 1024) throw new Error('Backup must be smaller than 5 MiB.');
-          const imported = validateWorkspace(JSON.parse(await file.text()));
-          state.workspace = mergeWorkspace(state.workspace, imported);
-          saveStorage();
-          state.notice = `Imported ${imported.saved.length} saved scenarios.`;
-          render();
-        } catch (err) {
-          notify((err as Error).message);
-        }
-      });
-    bindActions(root);
-    bindResult();
+    } else if (input.id === 'import-file' && input instanceof HTMLInputElement) {
+      void importBackup(input);
+    } else if (input.name === 'explanation-method') {
+      state.method = input.value;
+      displayResult();
+    } else if (input.name === 'detail-level') {
+      state.detail = input.value as typeof state.detail;
+      displayResult();
+    } else if (input.name === 'hint-mode' && input instanceof HTMLInputElement) {
+      state.hintMode = input.checked;
+      state.hintCount = 0;
+      state.answerRevealed = false;
+      displayResult();
+    }
   }
-  function bindResult() {
-    const container = document.querySelector<HTMLElement>('#result');
-    if (!container) return;
-    container.addEventListener('input', (e) => {
-      const input = e.target as HTMLInputElement;
-      if (input.name === 'scenario-name') state.scenarioName = input.value;
-      if (input.closest('#practice-answer')) state.practiceAnswers[input.name] = input.value;
-    });
-    container
-      .querySelector<HTMLSelectElement>('[name="explanation-method"]')
-      ?.addEventListener('change', (e) => {
-        state.method = (e.target as HTMLSelectElement).value;
-        displayResult();
-      });
-    container
-      .querySelector<HTMLSelectElement>('[name="detail-level"]')
-      ?.addEventListener('change', (e) => {
-        state.detail = (e.target as HTMLSelectElement).value as typeof state.detail;
-        displayResult();
-      });
-    container
-      .querySelector<HTMLInputElement>('[name="hint-mode"]')
-      ?.addEventListener('change', (e) => {
-        state.hintMode = (e.target as HTMLInputElement).checked;
-        state.hintCount = 0;
-        state.answerRevealed = false;
-        displayResult();
-      });
-    container
-      .querySelector<HTMLFormElement>('#practice-answer')
-      ?.addEventListener('submit', (e) => {
-        e.preventDefault();
-        if (!state.question) return;
-        const values = readValues(e.target as HTMLFormElement);
-        const matches = state.question.answers.map((a, i) =>
-          checkAnswer(values[`answer-${i}`] || '', a.value, state.question!.topic),
-        );
-        state.practiceFeedback = state.question.answers.map(
-          (a, i) =>
-            `${matches[i] ? '✓' : '✗'} ${a.label}: ${matches[i] ? 'Correct' : 'Try again, or use a hint.'}`,
-        );
-        if (!state.practiceCounted) {
-          state.workspace.score.attempted++;
-          if (matches.every(Boolean)) state.workspace.score.correct++;
-          state.practiceCounted = true;
-          saveStorage();
-        }
-        container.querySelector('.feedback')!.innerHTML = state.practiceFeedback
-          .map((f) => `<p>${esc(f)}</p>`)
-          .join('');
-      });
-    bindActions(container);
+  async function importBackup(input: HTMLInputElement) {
+    const file = input.files?.[0];
+    if (!file) return;
+    capture();
+    try {
+      if (file.size > 5 * 1024 * 1024) throw new Error('Backup must be smaller than 5 MiB.');
+      const imported = validateWorkspace(JSON.parse(await file.text()));
+      if (disposed) return;
+      // Capture again so edits or navigation during file reading are preserved.
+      capture();
+      state.workspace = mergeWorkspace(state.workspace, imported);
+      saveStorage();
+      state.notice = `Imported ${imported.saved.length} saved scenarios.`;
+      render();
+    } catch (error) {
+      if (!disposed) notify((error as Error).message);
+    } finally {
+      input.value = '';
+    }
   }
-  function bindActions(container: HTMLElement) {
-    container.querySelectorAll<HTMLButtonElement>('[data-action]').forEach((el) => {
-      if (el.dataset.bound) return;
-      el.dataset.bound = '1';
-      el.addEventListener('click', () => {
-        void act(el).catch((e) => notify((e as Error).message));
-      });
-    });
-  }
+  root.addEventListener('click', onClick);
+  root.addEventListener('submit', onSubmit);
+  root.addEventListener('input', onInput);
+  root.addEventListener('change', onChange);
   let offlineMessage =
     location.protocol === 'file:' ? 'Self-contained offline file' : 'Local calculations ready';
   function updateOffline() {
@@ -305,6 +306,11 @@ export function startApp(root: HTMLDivElement) {
         updateOffline();
       });
   return () => {
+    disposed = true;
+    root.removeEventListener('click', onClick);
+    root.removeEventListener('submit', onSubmit);
+    root.removeEventListener('input', onInput);
+    root.removeEventListener('change', onChange);
     themeQuery.removeEventListener('change', theme);
     root.innerHTML = '';
   };

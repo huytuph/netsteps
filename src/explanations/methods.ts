@@ -1,4 +1,7 @@
 import type { Lesson } from './model';
+export function resolveMethod(lesson: Lesson, requested: string): string {
+  return Object.hasOwn(lesson.methods, requested) ? requested : 'recommended';
+}
 export const methodLabels: Record<string, string> = {
   recommended: 'Recommended / Easiest',
   division: 'Division / Remainder',
