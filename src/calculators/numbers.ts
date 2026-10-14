@@ -7,6 +7,32 @@ export interface Conversion {
   value: number;
   output: string;
 }
+export interface IntegerConversion {
+  input: string;
+  from: NumberBase;
+  to: NumberBase;
+  value: bigint;
+  output: string;
+}
+export function convertInteger(input: string, from: NumberBase, to: NumberBase): IntegerConversion {
+  const text = input
+    .trim()
+    .replace(from === 'hex' ? /^0x/i : from === 'binary' ? /^0b/i : /^$/, '')
+    .toUpperCase();
+  const patterns = { decimal: /^\d+$/, binary: /^[01]+$/, hex: /^[\dA-F]+$/ };
+  if (!patterns[from]?.test(text) || !['decimal', 'binary', 'hex'].includes(to))
+    throw new Error('Enter a nonnegative integer in the selected number base.');
+  if (text.length > 1024) throw new Error('Use at most 256 significant bits for manual working.');
+  const value = BigInt((from === 'binary' ? '0b' : from === 'hex' ? '0x' : '') + text);
+  if (value >= 1n << 256n) throw new Error('Use at most 256 significant bits for manual working.');
+  return {
+    input: text,
+    from,
+    to,
+    value,
+    output: value.toString({ decimal: 10, binary: 2, hex: 16 }[to]).toUpperCase(),
+  };
+}
 export function convert(input: string, from: NumberBase, to: NumberBase, pad = true): Conversion {
   const text = input
     .trim()

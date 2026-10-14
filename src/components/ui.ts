@@ -39,16 +39,20 @@ export function readValues(form: HTMLFormElement): Values {
     [...new FormData(form)].filter(([k]) => !k.startsWith('r-')).map(([k, v]) => [k, String(v)]),
   );
   form.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach((el) => {
-    values[el.name] = el.checked ? 'on' : '';
+    if (!el.name.startsWith('r-')) values[el.name] = el.checked ? 'on' : '';
   });
   return values;
 }
 export function readRows(form: HTMLFormElement): Values[] {
   return [...form.querySelectorAll<HTMLElement>('[data-row]')].map((row) =>
     Object.fromEntries(
-      [...row.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select')].map((e) => [
+      [
+        ...row.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+          'input, select, textarea',
+        ),
+      ].map((e) => [
         e.name.split('-').slice(2).join('-'),
-        e.value,
+        e.type === 'checkbox' ? ((e as HTMLInputElement).checked ? 'on' : '') : e.value,
       ]),
     ),
   );

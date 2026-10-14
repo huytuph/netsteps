@@ -7,6 +7,9 @@ export const tabs = [
   'Static Routing',
   'VLAN/HSRP',
   'DHCP/NAT',
+  'Tunnelling',
+  'Distance Vector',
+  'Frame Relay',
   'Practice',
   'Settings',
 ] as const;

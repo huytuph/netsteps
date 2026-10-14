@@ -8,7 +8,9 @@ import {
   parseNetwork,
   subnet,
 } from '../calculators/ipv4';
-import { convert, convertIPv4, NumberBase } from '../calculators/numbers';
+import { convert, convertInteger, convertIPv4, NumberBase } from '../calculators/numbers';
+import { integerLesson } from '../explanations/integer';
+import { advancedCalculation } from './advanced';
 import { planVlsm, Requirement } from '../calculators/vlsm';
 import { staticRoute } from '../calculators/routing';
 import {
@@ -51,6 +53,8 @@ export function requiredNumber(value: string, label: string): number {
   return Number(value);
 }
 export function calculate(tab: Tab, v: Values, rows: Values[]): Lesson {
+  const advanced = advancedCalculation(tab, v, rows);
+  if (advanced) return advanced;
   if (tab === 'IPv6') {
     if (v.mode === 'subnet') return ipv6SubnetLesson(ipv6Subnet(v.address, v.prefix));
     if (v.mode === 'overlap')
@@ -82,6 +86,8 @@ export function calculate(tab: Tab, v: Values, rows: Values[]): Lesson {
     );
   }
   if (tab === 'Number Systems') {
+    if (v.mode === 'integer')
+      return integerLesson(convertInteger(v.input, v.from as NumberBase, v.to as NumberBase));
     if (v.mode === 'octet')
       return numberLesson(
         convert(v.input, v.from as NumberBase, v.to as NumberBase, v.pad === 'on'),

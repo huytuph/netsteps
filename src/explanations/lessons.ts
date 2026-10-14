@@ -125,6 +125,7 @@ export function ipv4Lesson(decimal: string, binary: string, octets: Conversion[]
     metrics: [
       ['Decimal IPv4', decimal],
       ['Binary IPv4', binary],
+      ['Bits per segment', '8 bits per octet; 4 × 8 = 32 bits total'],
     ],
     columns: ['Octet', 'Decimal', 'Binary', 'Hex'],
     rows: octets.map((r, i) => [

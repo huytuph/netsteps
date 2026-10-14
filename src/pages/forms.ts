@@ -1,6 +1,7 @@
 import { Tab, Values } from '../app/storage';
 import { field, select, checkbox, area, button, esc } from '../components/ui';
 import { topics } from '../calculators/practice';
+import { advancedDefaults, advancedFields, advancedRow } from './advanced';
 export const descriptions: Record<Tab, string> = {
   Dashboard: 'Your networking study workspace.',
   'Number Systems': 'See how every bit, digit and octet is built.',
@@ -12,10 +13,14 @@ export const descriptions: Record<Tab, string> = {
   'DHCP/NAT': 'Build address pools and translate traffic.',
   Practice: 'Build confidence one problem at a time.',
   Settings: 'Make this workspace your own.',
+  Tunnelling: 'Join two LANs across an IPv4 underlay.',
+  'Distance Vector': 'Follow every routing-table update, one round at a time.',
+  'Frame Relay': 'Plan point-to-point circuits, DLCIs and static routes.',
 };
 export const baseValues: Partial<Record<Tab, Values>> = {
+  ...advancedDefaults,
   'Number Systems': {
-    mode: 'octet',
+    mode: 'integer',
     input: '',
     from: 'decimal',
     to: 'binary',
@@ -49,6 +54,7 @@ export const baseValues: Partial<Record<Tab, Values>> = {
     connected: '',
     distance: '',
     primaryDistance: '',
+    ospfProcess: '',
   },
   'Static Routing': {
     mode: 'route',
@@ -89,6 +95,12 @@ export const baseValues: Partial<Record<Tab, Values>> = {
     inside: '',
     outside: '',
     acl: '',
+    poolStart: '',
+    poolEnd: '',
+    poolPrefix: '',
+    insideAddress: '',
+    outsideAddress: '',
+    outsideNextHop: '',
   },
   Practice: {
     topic: 'Network address',
@@ -101,13 +113,21 @@ export const baseValues: Partial<Record<Tab, Values>> = {
   },
 };
 export function blankRow(tab: Tab): Values {
+  const advanced = advancedRow(tab);
+  if (advanced) return advanced;
   if (tab === 'IPv6') return { name: '', prefix: '', locked: '' };
   return tab === 'VLSM'
     ? { name: '', hosts: '', mode: 'lan', locked: '' }
     : { id: '', name: '', hosts: '', network: '', gateway: '', ports: '', voice: '', trunk: '' };
 }
 export function initialRows(tab: Tab): Values[] {
-  return tab === 'VLSM' || tab === 'VLAN/HSRP' || tab === 'IPv6' ? [blankRow(tab)] : [];
+  return tab === 'VLSM' ||
+    tab === 'VLAN/HSRP' ||
+    tab === 'IPv6' ||
+    tab === 'Distance Vector' ||
+    tab === 'Frame Relay'
+    ? [blankRow(tab)]
+    : [];
 }
 const modes: [string, string][] = [
   ['lan', 'LAN (/30 or larger)'],
@@ -120,6 +140,8 @@ export function formFields(tab: Tab, v: Values, rows: Values[]): string {
   const s = (key: string, label: string, options: [string, string][], extra = '') =>
     select(key, label, v[key] || '', options, extra);
   const mode = (options: [string, string][]) => s('mode', 'Tool', options, 'data-mode');
+  const advanced = advancedFields(tab, v, rows);
+  if (advanced !== null && tab !== 'IPv6' && tab !== 'DHCP/NAT') return advanced;
   if (tab === 'IPv6')
     return (
       mode([
@@ -129,69 +151,73 @@ export function formFields(tab: Tab, v: Values, rows: Values[]): string {
         ['plan', 'Subnet allocation planner'],
         ['overlap', 'Check IPv6 overlaps'],
         ['route', 'IPv6 static / default / floating route'],
+        ['ospf', 'IPv6 OSPFv3 configuration'],
       ]) +
-      (v.mode === 'binary'
-        ? area(
-            'binary',
-            '128-bit binary address',
-            v.binary,
-            '128 bits, or eight colon-separated groups of 16 bits.',
-          )
-        : v.mode === 'subnet'
-          ? f('address', 'IPv6 address') +
-            f('prefix', 'IPv6 prefix length', 'text', '/0–/128. No dotted mask and no broadcast.')
-          : v.mode === 'overlap'
-            ? area(
-                'networks',
-                'IPv6 networks to compare',
-                v.networks,
-                'One IPv6/CIDR per line. Host bits are normalized before comparison.',
-              )
-            : v.mode === 'plan'
-              ? f(
-                  'base',
-                  'IPv6 base network',
-                  'text',
-                  'Aligned IPv6/CIDR. For example 2001:db8::/48.',
-                ) +
-                s('order', 'Allocation order', [
-                  ['auto', 'Largest first (recommended)'],
-                  ['manual', 'Manual row order'],
-                ]) +
-                `<p class="note">Plan /64 LANs, /127 router links, /128 host routes, or aggregate prefixes. Sizes are based on prefixes; no IPv4 host-count rule.</p><div class="row-list">${rows.map((r, i) => `<fieldset data-row="${i}"><legend>IPv6 subnet ${i + 1}</legend>${field(`r-${i}-name`, 'Name', r.name)}${field(`r-${i}-prefix`, 'Requested IPv6 prefix', r.prefix, 'text', '/0–/128; must fit within the base.')}${field(`r-${i}-locked`, 'Locked IPv6 subnet (optional)', r.locked, 'text', 'Must be aligned and match the requested prefix.')}<div class="row-actions">${button('up', '↑ Move', `data-index="${i}" ${i === 0 ? 'disabled' : ''}`)}${button('down', '↓ Move', `data-index="${i}" ${i === rows.length - 1 ? 'disabled' : ''}`)}${button('remove-row', 'Remove', `data-index="${i}"`)}</div></fieldset>`).join('')}</div>${button('add-row', '+ Add IPv6 subnet')}`
-              : v.mode === 'route'
+      (v.mode === 'ospf'
+        ? advanced!
+        : v.mode === 'binary'
+          ? area(
+              'binary',
+              '128-bit binary address',
+              v.binary,
+              '128 bits, or eight colon-separated groups of 16 bits.',
+            )
+          : v.mode === 'subnet'
+            ? f('address', 'IPv6 address') +
+              f('prefix', 'IPv6 prefix length', 'text', '/0–/128. No dotted mask and no broadcast.')
+            : v.mode === 'overlap'
+              ? area(
+                  'networks',
+                  'IPv6 networks to compare',
+                  v.networks,
+                  'One IPv6/CIDR per line. Host bits are normalized before comparison.',
+                )
+              : v.mode === 'plan'
                 ? f(
-                    'destination',
-                    'IPv6 destination network',
+                    'base',
+                    'IPv6 base network',
                     'text',
-                    'Use ::/0 for a default route.',
+                    'Aligned IPv6/CIDR. For example 2001:db8::/48.',
                   ) +
-                  button('default-route', 'Use default route') +
-                  `<div class="form-grid">${f('nextHop', 'IPv6 next hop (optional)')}${f('exit', 'Exit interface (optional)')}</div>` +
-                  f('local', 'Local IPv6 router address (optional)') +
-                  area(
-                    'connected',
-                    'Connected IPv6 networks',
-                    v.connected,
-                    'One IPv6/CIDR per line. Link-local next hops always require an exit interface.',
-                  ) +
-                  `<div class="form-grid">${f('distance', 'Administrative distance', 'number', '', 'min="1" max="254"')}${f('primaryDistance', 'Primary route distance', 'number', '', 'min="1" max="254"')}</div>` +
-                  checkbox('floating', 'Generate floating backup route', v.floating === 'on')
-                : f(
-                    'address',
-                    'IPv6 address',
-                    'text',
-                    'Compressed, expanded or IPv4-embedded form. No CIDR or zone ID.',
-                  ))
+                  s('order', 'Allocation order', [
+                    ['auto', 'Largest first (recommended)'],
+                    ['manual', 'Manual row order'],
+                  ]) +
+                  `<p class="note">Plan /64 LANs, /127 router links, /128 host routes, or aggregate prefixes. Sizes are based on prefixes; no IPv4 host-count rule.</p><div class="row-list">${rows.map((r, i) => `<fieldset data-row="${i}"><legend>IPv6 subnet ${i + 1}</legend>${field(`r-${i}-name`, 'Name', r.name)}${field(`r-${i}-prefix`, 'Requested IPv6 prefix', r.prefix, 'text', '/0–/128; must fit within the base.')}${field(`r-${i}-locked`, 'Locked IPv6 subnet (optional)', r.locked, 'text', 'Must be aligned and match the requested prefix.')}<div class="row-actions">${button('up', '↑ Move', `data-index="${i}" ${i === 0 ? 'disabled' : ''}`)}${button('down', '↓ Move', `data-index="${i}" ${i === rows.length - 1 ? 'disabled' : ''}`)}${button('remove-row', 'Remove', `data-index="${i}"`)}</div></fieldset>`).join('')}</div>${button('add-row', '+ Add IPv6 subnet')}`
+                : v.mode === 'route'
+                  ? f(
+                      'destination',
+                      'IPv6 destination network',
+                      'text',
+                      'Use ::/0 for a default route.',
+                    ) +
+                    button('default-route', 'Use default route') +
+                    `<div class="form-grid">${f('nextHop', 'IPv6 next hop (optional)')}${f('exit', 'Exit interface (optional)')}</div>` +
+                    f('local', 'Local IPv6 router address (optional)') +
+                    area(
+                      'connected',
+                      'Connected IPv6 networks',
+                      v.connected,
+                      'One IPv6/CIDR per line. Link-local next hops always require an exit interface.',
+                    ) +
+                    `<div class="form-grid">${f('distance', 'Administrative distance', 'number', '', 'min="1" max="254"')}${f('primaryDistance', 'Primary route distance', 'number', '', 'min="1" max="254"')}</div>` +
+                    checkbox('floating', 'Generate floating backup route', v.floating === 'on')
+                  : f(
+                      'address',
+                      'IPv6 address',
+                      'text',
+                      'Compressed, expanded or IPv4-embedded form. No CIDR or zone ID.',
+                    ))
     );
   if (tab === 'Number Systems')
     return (
       mode([
         ['octet', 'Octet conversion'],
+        ['integer', 'Integer conversion (includes 0–999)'],
         ['ipv4', 'IPv4 → Binary'],
         ['binary-ip', 'Binary IPv4 → Decimal'],
       ]) +
-      (v.mode === 'octet'
+      (v.mode === 'octet' || v.mode === 'integer'
         ? `<div class="form-grid">${s('from', 'From', [
             ['decimal', 'Decimal'],
             ['binary', 'Binary'],
@@ -200,7 +226,7 @@ export function formFields(tab: Tab, v: Values, rows: Values[]): string {
             ['binary', 'Binary'],
             ['decimal', 'Decimal'],
             ['hex', 'Hexadecimal'],
-          ])}</div>${f('input', 'Octet value', 'text', 'Decimal equivalent must be 0–255.')} ${checkbox('pad', 'Pad binary to 8 bits / hex to 2 digits', v.pad === 'on')}`
+          ])}</div>${f('input', v.mode === 'integer' ? 'Integer value' : 'Octet value', 'text', v.mode === 'integer' ? 'Enter the number directly. Nonnegative integers up to 256 significant bits; no ID field.' : 'Decimal equivalent must be 0–255.')} ${v.mode === 'octet' ? checkbox('pad', 'Pad binary to 8 bits / hex to 2 digits', v.pad === 'on') : ''}`
         : v.mode === 'ipv4'
           ? f('ipv4', 'IPv4 address')
           : f('binaryIpv4', 'Binary IPv4', 'text', 'Four 8-bit octets separated by dots.'))
@@ -288,22 +314,25 @@ export function formFields(tab: Tab, v: Values, rows: Values[]): string {
       mode([
         ['dhcp', 'DHCP / Option 150 pool'],
         ['nat', 'NAT / PAT overload'],
+        ['dynamic', 'Dynamic NAT translation pool'],
       ]) +
-      (v.mode === 'nat'
-        ? f('insideNetwork', 'Inside network') +
-          `<div class="form-grid">${f('inside', 'Inside interface')}${f('outside', 'WAN / outside interface')}</div>` +
-          f('acl', 'Standard ACL number', 'number', '1–99.')
-        : f('network', 'Pool network') +
-          `<div class="form-grid">${f('pool', 'Pool name')}${f('gateway', 'Default gateway')}</div>` +
-          area(
-            'excluded',
-            'Excluded addresses / ranges',
-            v.excluded,
-            'One start-end range per line. Gateway is automatically excluded.',
-          ) +
-          f('dns', 'DNS servers (optional)', 'text', 'Comma or space separated.') +
-          `<div class="form-grid">${f('domain', 'Domain (optional)')}${f('lease', 'Lease days', 'number', '0 = infinite.', 'min="0" max="365"')}</div>` +
-          f('tftp', 'TFTP / Option 150 IP (optional)'))
+      (v.mode === 'dynamic'
+        ? advanced!
+        : v.mode === 'nat'
+          ? f('insideNetwork', 'Inside network') +
+            `<div class="form-grid">${f('inside', 'Inside interface')}${f('outside', 'WAN / outside interface')}</div>` +
+            f('acl', 'Standard ACL number', 'number', '1–99.')
+          : f('network', 'Pool network') +
+            `<div class="form-grid">${f('pool', 'Pool name')}${f('gateway', 'Default gateway')}</div>` +
+            area(
+              'excluded',
+              'Excluded addresses / ranges',
+              v.excluded,
+              'One start-end range per line. Gateway is automatically excluded.',
+            ) +
+            f('dns', 'DNS servers (optional)', 'text', 'Comma or space separated.') +
+            `<div class="form-grid">${f('domain', 'Domain (optional)')}${f('lease', 'Lease days', 'number', '0 = infinite.', 'min="0" max="365"')}</div>` +
+            f('tftp', 'TFTP / Option 150 IP (optional)'))
     );
   if (tab === 'Practice')
     return (
