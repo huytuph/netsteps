@@ -1,5 +1,5 @@
 import type { IntegerConversion } from '../calculators/numbers';
-import type { Lesson, Step } from './lessons';
+import type { Lesson, Step } from './model';
 export function integerLesson(r: IntegerConversion): Lesson {
   const radix = { decimal: 10, binary: 2, hex: 16 },
     base = radix[r.to === 'decimal' ? r.from : r.to];
@@ -19,12 +19,10 @@ export function integerLesson(r: IntegerConversion): Lesson {
         ? `This reconstructs ${r.input} in ${r.from}; decimal value ${r.value}.`
         : `Result: ${r.output}`,
   });
-  const place = r.input
-    .split('')
-    .map((d, i) => ({
-      title: `Position ${r.input.length - 1 - i}`,
-      text: `${d} × ${radix[r.from]}^${r.input.length - 1 - i} = ${BigInt(parseInt(d, radix[r.from])) * BigInt(radix[r.from]) ** BigInt(r.input.length - 1 - i)}`,
-    }));
+  const place = r.input.split('').map((d, i) => ({
+    title: `Position ${r.input.length - 1 - i}`,
+    text: `${d} × ${radix[r.from]}^${r.input.length - 1 - i} = ${BigInt(parseInt(d, radix[r.from])) * BigInt(radix[r.from]) ** BigInt(r.input.length - 1 - i)}`,
+  }));
   place.push({
     title: 'Add all contributions',
     text: `Decimal total ${r.value}. ${r.to} result: ${r.output}.`,

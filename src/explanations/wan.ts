@@ -1,28 +1,11 @@
-import type { Lesson, Step } from './lessons';
-import type { dynamicNat, frameRelayPlan, ospfv3Plan, tunnelPlan } from '../calculators/wan';
 import type { distanceVector } from '../calculators/distance-vector';
+import type { dynamicNat, frameRelayPlan, ospfv3Plan, tunnelPlan } from '../calculators/wan';
+import { commandLesson } from './commands';
+import type { Lesson, Step } from './model';
 const step = (title: string, text: string): Step => ({ title, text });
-const commandLesson = (
-  title: string,
-  summary: string,
-  metrics: [string, string][],
-  commands: string,
-  steps: Step[],
-  why: string,
-  warnings: string[],
-): Lesson => ({
-  title,
-  summary,
-  metrics,
-  commands,
-  why,
-  warnings,
-  methods: { recommended: steps, commands: steps, exam: [step('Configuration', commands)] },
-});
 export function dynamicNatLesson(r: ReturnType<typeof dynamicNat>): Lesson {
   return commandLesson(
     'Dynamic NAT pool',
-    `${r.pool}: ${r.start}–${r.end}`,
     [
       ['Translated pool', `${r.start}–${r.end}`],
       ['Pool mask', r.poolNet.mask],
@@ -56,7 +39,9 @@ export function dynamicNatLesson(r: ReturnType<typeof dynamicNat>): Lesson {
       ),
     ],
     'Define the pool, select the sources, bind them together, and identify the two sides.',
-    r.warnings,
+    undefined,
+    undefined,
+    { summary: `${r.pool}: ${r.start}–${r.end}`, warnings: r.warnings },
   );
 }
 export function tunnelLesson(r: ReturnType<typeof tunnelPlan>): Lesson {
@@ -76,7 +61,6 @@ export function tunnelLesson(r: ReturnType<typeof tunnelPlan>): Lesson {
   ]);
   return commandLesson(
     'Two-router tunnel plan',
-    `${r.endpoints[0].name} ↔ ${r.endpoints[1].name}`,
     [
       ['Tunnel', `Tunnel${r.id}`],
       ['Mode', r.mode],
@@ -96,7 +80,9 @@ export function tunnelLesson(r: ReturnType<typeof tunnelPlan>): Lesson {
       ),
     ],
     'Build a reachable outer IPv4 path, assign matching inner tunnel addresses and route each remote LAN through the tunnel.',
-    r.warnings,
+    undefined,
+    undefined,
+    { summary: `${r.endpoints[0].name} ↔ ${r.endpoints[1].name}`, warnings: r.warnings },
   );
 }
 export function frameRelayLesson(r: ReturnType<typeof frameRelayPlan>): Lesson {
@@ -124,7 +110,6 @@ export function frameRelayLesson(r: ReturnType<typeof frameRelayPlan>): Lesson {
   ];
   const l = commandLesson(
     'Frame Relay point-to-point subinterfaces',
-    `${r.router}: ${r.allocations.length} circuits`,
     [
       ['Router', r.router],
       ['Physical parent', r.parent],
@@ -133,7 +118,9 @@ export function frameRelayLesson(r: ReturnType<typeof frameRelayPlan>): Lesson {
     r.command,
     steps,
     'One numbered point-to-point subinterface represents one virtual circuit; static routes send each remote LAN to its peer.',
-    r.warnings,
+    undefined,
+    undefined,
+    { summary: `${r.router}: ${r.allocations.length} circuits`, warnings: r.warnings },
   );
   l.columns = ['Subinterface', 'Local DLCI', 'Address', 'Peer', 'Remote networks'];
   l.rows = r.allocations.map((a) => [
@@ -167,7 +154,6 @@ export function ospfv3Lesson(r: ReturnType<typeof ospfv3Plan>): Lesson {
   ];
   const l = commandLesson(
     'IPv6 OSPFv3 configuration',
-    `${r.routers.length} routers; process ${r.process}`,
     [
       ['Routers', String(r.routers.length)],
       ['Interfaces', String(r.interfaces.length)],
@@ -176,7 +162,9 @@ export function ospfv3Lesson(r: ReturnType<typeof ospfv3Plan>): Lesson {
     r.command,
     steps,
     'Enable forwarding, give each router a unique ID, then activate OSPF on the interfaces in the appropriate areas.',
-    r.warnings,
+    undefined,
+    undefined,
+    { summary: `${r.routers.length} routers; process ${r.process}`, warnings: r.warnings },
   );
   l.columns = ['Router', 'Router ID', 'Interface', 'IPv6 address', 'Area', 'Mode'];
   l.rows = r.interfaces.map((i) => [

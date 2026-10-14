@@ -119,6 +119,14 @@ const tunnelInput: TunnelInput = {
   },
 };
 describe('Test 2 tunnels', () => {
+  it('keeps IPv6 GRE commands and parsed endpoint prefixes consistent', () => {
+    const r = tunnelPlan({ ...tunnelInput, mode: 'gre6' });
+    expect(r.command).toContain('tunnel mode gre ip');
+    expect(r.command).toContain('ipv6 address 2001:db8:3::1/64');
+    expect(r.command).toContain('ipv6 route 2001:db8:2::/64 2001:db8:3::2');
+    expect(r.endpoints[0].lan.prefix).toBe(64);
+    expect(r.endpoints[0].wan.mask).toBe('255.255.255.252');
+  });
   it('generates reciprocal IPv6-over-IPv4 endpoints, underlay host routes and both inner routes', () => {
     const r = tunnelPlan(tunnelInput);
     expect(r.command).toContain(

@@ -1,24 +1,13 @@
+export { commandLesson } from './commands';
+export { methodLabels, methodWhy } from './methods';
+export type { Lesson, Step } from './model';
 import { binaryIp, HostRequirement, Subnet } from '../calculators/ipv4';
 import { Conversion } from '../calculators/numbers';
-import { VlsmPlan } from '../calculators/vlsm';
-import { RouteResult } from '../calculators/routing';
 import type { Question } from '../calculators/practice';
-import { ipv6AddressLesson, ipv6SubnetLesson, ipv6RouteLesson } from './ipv6';
-export interface Step {
-  title: string;
-  text: string;
-}
-export interface Lesson {
-  title: string;
-  summary: string;
-  metrics: [string, string][];
-  methods: Record<string, Step[]>;
-  why: string;
-  columns?: string[];
-  rows?: string[][];
-  commands?: string;
-  warnings?: string[];
-}
+import { RouteResult } from '../calculators/routing';
+import { VlsmPlan } from '../calculators/vlsm';
+import { ipv6AddressLesson, ipv6RouteLesson, ipv6SubnetLesson } from './ipv6';
+import type { Lesson, Step } from './model';
 const step = (title: string, text: string): Step => ({ title, text });
 export function numberLesson(r: Conversion): Lesson {
   const radix = { decimal: 10, binary: 2, hex: 16 };
@@ -432,73 +421,6 @@ export function routeLesson(r: RouteResult): Lesson {
     },
   };
 }
-export function commandLesson(
-  title: string,
-  metrics: [string, string][],
-  commands: string,
-  steps: Step[],
-  why: string,
-  rows?: string[][],
-  columns?: string[],
-): Lesson {
-  return {
-    title,
-    summary: metrics[0] ? `${metrics[0][0]}: ${metrics[0][1]}` : title,
-    metrics,
-    commands,
-    why,
-    rows,
-    columns,
-    methods: {
-      recommended: steps,
-      commands: commands
-        .split('\n')
-        .filter((x) => x.trim() && !x.startsWith('!'))
-        .map((line) => step('Configuration line', `${line}\n${commandMeaning(line.trim())}`)),
-      exam: [
-        step('Address and command summary', metrics.map(([k, v]) => `${k}: ${v}`).join('\n')),
-        step('Configuration', commands),
-      ],
-    },
-  };
-}
-function commandMeaning(line: string): string {
-  const meanings: [RegExp, string][] = [
-    [/^vlan /, 'Create or select this VLAN in global configuration.'],
-    [/^name /, 'Assign the VLAN a descriptive name.'],
-    [/^interface range /, 'Select these switch ports for the following access configuration.'],
-    [/^interface /, 'Select the interface or SVI for the following commands.'],
-    [/^switchport mode access/, 'Put the port in access mode for endpoint traffic.'],
-    [/^switchport access vlan/, 'Assign untagged data traffic to this VLAN.'],
-    [/^switchport voice vlan/, 'Tag phone traffic with this separate voice VLAN.'],
-    [/^switchport mode trunk/, 'Carry multiple tagged VLANs over this link.'],
-    [/^switchport trunk allowed/, 'Add the listed VLANs to this trunk’s allowed membership.'],
-    [/^ip address/, 'Assign this interface its real IPv4 address and subnet mask.'],
-    [/^standby .* ip /, 'Set the shared HSRP virtual gateway used by hosts.'],
-    [/^standby .* priority /, 'Set election preference; the higher priority is preferred.'],
-    [/^standby .* preempt/, 'Allow a higher-priority recovered router to become active again.'],
-    [/^no shutdown/, 'Enable the interface administratively.'],
-    [/^ip dhcp excluded/, 'Prevent DHCP from leasing these statically reserved addresses.'],
-    [/^ip dhcp pool/, 'Create or select the named DHCP pool.'],
-    [/^network /, 'Set the subnet from which this DHCP pool leases addresses.'],
-    [/^default-router/, 'Give clients this default gateway.'],
-    [/^dns-server/, 'Give clients these DNS resolver addresses.'],
-    [/^domain-name/, 'Give clients this domain suffix.'],
-    [/^lease/, 'Set lease duration in days, or infinite.'],
-    [/^option 150/, 'Give IP phones their TFTP/CME server address.'],
-    [/^access-list/, 'Match the inside network using its wildcard mask.'],
-    [
-      /^ip nat inside source/,
-      'Translate matching sources to the WAN interface address; overload distinguishes sessions by ports.',
-    ],
-    [/^ip nat inside$/, 'Mark this interface as the inside NAT boundary.'],
-    [/^ip nat outside$/, 'Mark this interface as the outside NAT boundary.'],
-  ];
-  return (
-    meanings.find(([pattern]) => pattern.test(line))?.[1] ||
-    'Apply this line in its configuration context.'
-  );
-}
 export function questionLesson(question: Question): Lesson {
   const c = question.calculation;
   if (!c) throw new Error('This practice question has no calculation.');
@@ -520,42 +442,4 @@ export function questionLesson(question: Question): Lesson {
     case 'vlsm':
       return vlsmLesson(c.result);
   }
-}
-export const methodLabels: Record<string, string> = {
-  recommended: 'Recommended / Easiest',
-  division: 'Division / Remainder',
-  place: 'Place Value',
-  powers: 'Powers of Two',
-  formula: 'Formula',
-  binary: 'Binary',
-  and: 'Bitwise AND',
-  block: 'Block Size',
-  connected: 'Connected Networks',
-  commands: 'Command by Command',
-  exam: 'Short Exam Method',
-};
-export function methodWhy(lesson: Lesson, method: string): string {
-  return (
-    (
-      {
-        division:
-          'Repeated division produces one digit at a time. Reading remainders in reverse reconstructs the value in the chosen base.',
-        place: 'Multiplying each digit by its positional weight makes every contribution visible.',
-        powers:
-          'Powers of two connect bit positions to address capacity and help you reproduce the result by hand.',
-        formula:
-          'The formula expresses the boundary or capacity rule directly, so you can substitute the input values.',
-        binary:
-          'Binary exposes the network and host bits. Four-bit groups also map directly to hexadecimal digits.',
-        and: 'Bitwise AND keeps only positions that are 1 in both the address and the mask.',
-        block:
-          'Subtract the changing mask octet from 256, then locate the nearest lower block boundary.',
-        connected:
-          'List connected networks first so you can distinguish local destinations from networks that need a route.',
-        commands:
-          'Reading each command with its purpose connects the address plan to the configuration.',
-        exam: 'This compact method retains the essential arithmetic and final answer for quick revision.',
-      } as Record<string, string>
-    )[method] || lesson.why
-  );
 }

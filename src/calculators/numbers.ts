@@ -1,4 +1,4 @@
-import { binaryIp, intToIp, ipToInt, integer } from './ipv4';
+import { binaryIp, integer, intToIp, ipToInt } from './ipv4';
 export type NumberBase = 'decimal' | 'binary' | 'hex';
 export interface Conversion {
   input: string;

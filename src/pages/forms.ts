@@ -1,24 +1,11 @@
 import { Tab, Values } from '../app/storage';
-import { field, select, checkbox, area, button, esc } from '../components/ui';
 import { topics } from '../calculators/practice';
-import { advancedDefaults, advancedFields, advancedRow } from './advanced';
-export const descriptions: Record<Tab, string> = {
-  Dashboard: 'Your networking study workspace.',
-  'Number Systems': 'See how every bit, digit and octet is built.',
-  Subnetting: 'Find the boundaries. Understand the working.',
-  IPv6: 'Expand addresses, plan prefixes, and understand IPv6 routing.',
-  VLSM: 'Give every network room to grow.',
-  'Static Routing': 'Connect the destination to the next hop.',
-  'VLAN/HSRP': 'Plan segmented networks and resilient gateways.',
-  'DHCP/NAT': 'Build address pools and translate traffic.',
-  Practice: 'Build confidence one problem at a time.',
-  Settings: 'Make this workspace your own.',
-  Tunnelling: 'Join two LANs across an IPv4 underlay.',
-  'Distance Vector': 'Follow every routing-table update, one round at a time.',
-  'Frame Relay': 'Plan point-to-point circuits, DLCIs and static routes.',
-};
+import { formHelpers, rowControls } from '../components/rows';
+import { area, button, checkbox, esc, field, select } from '../components/ui';
+import { featureDefaults, featureFor, featureRow } from './features';
+export { descriptions } from '../app/tools';
 export const baseValues: Partial<Record<Tab, Values>> = {
-  ...advancedDefaults,
+  ...featureDefaults,
   'Number Systems': {
     mode: 'integer',
     input: '',
@@ -112,21 +99,21 @@ export const baseValues: Partial<Record<Tab, Values>> = {
     customNextHop: '',
   },
 };
-export function blankRow(tab: Tab): Values {
-  const advanced = advancedRow(tab);
+export function blankRow(tab: Tab, mode = baseValues[tab]?.mode || ''): Values {
+  const advanced = featureRow(tab, mode);
   if (advanced) return advanced;
   if (tab === 'IPv6') return { name: '', prefix: '', locked: '' };
   return tab === 'VLSM'
     ? { name: '', hosts: '', mode: 'lan', locked: '' }
     : { id: '', name: '', hosts: '', network: '', gateway: '', ports: '', voice: '', trunk: '' };
 }
-export function initialRows(tab: Tab): Values[] {
+export function initialRows(tab: Tab, mode = baseValues[tab]?.mode || ''): Values[] {
   return tab === 'VLSM' ||
     tab === 'VLAN/HSRP' ||
     tab === 'IPv6' ||
     tab === 'Distance Vector' ||
     tab === 'Frame Relay'
-    ? [blankRow(tab)]
+    ? [blankRow(tab, mode)]
     : [];
 }
 const modes: [string, string][] = [
@@ -135,12 +122,11 @@ const modes: [string, string][] = [
   ['host', 'Host route /32'],
 ];
 export function formFields(tab: Tab, v: Values, rows: Values[]): string {
-  const f = (key: string, label: string, type = 'text', help = '', attrs = '') =>
-    field(key, label, v[key] || '', type, help, attrs);
+  const { f } = formHelpers(v, rows);
   const s = (key: string, label: string, options: [string, string][], extra = '') =>
     select(key, label, v[key] || '', options, extra);
   const mode = (options: [string, string][]) => s('mode', 'Tool', options, 'data-mode');
-  const advanced = advancedFields(tab, v, rows);
+  const advanced = featureFor(tab, v)?.render(v, rows) ?? null;
   if (advanced !== null && tab !== 'IPv6' && tab !== 'DHCP/NAT') return advanced;
   if (tab === 'IPv6')
     return (
@@ -183,7 +169,7 @@ export function formFields(tab: Tab, v: Values, rows: Values[]): string {
                     ['auto', 'Largest first (recommended)'],
                     ['manual', 'Manual row order'],
                   ]) +
-                  `<p class="note">Plan /64 LANs, /127 router links, /128 host routes, or aggregate prefixes. Sizes are based on prefixes; no IPv4 host-count rule.</p><div class="row-list">${rows.map((r, i) => `<fieldset data-row="${i}"><legend>IPv6 subnet ${i + 1}</legend>${field(`r-${i}-name`, 'Name', r.name)}${field(`r-${i}-prefix`, 'Requested IPv6 prefix', r.prefix, 'text', '/0–/128; must fit within the base.')}${field(`r-${i}-locked`, 'Locked IPv6 subnet (optional)', r.locked, 'text', 'Must be aligned and match the requested prefix.')}<div class="row-actions">${button('up', '↑ Move', `data-index="${i}" ${i === 0 ? 'disabled' : ''}`)}${button('down', '↓ Move', `data-index="${i}" ${i === rows.length - 1 ? 'disabled' : ''}`)}${button('remove-row', 'Remove', `data-index="${i}"`)}</div></fieldset>`).join('')}</div>${button('add-row', '+ Add IPv6 subnet')}`
+                  `<p class="note">Plan /64 LANs, /127 router links, /128 host routes, or aggregate prefixes. Sizes are based on prefixes; no IPv4 host-count rule.</p><div class="row-list">${rows.map((r, i) => `<fieldset data-row="${i}"><legend>IPv6 subnet ${i + 1}</legend>${field(`r-${i}-name`, 'Name', r.name)}${field(`r-${i}-prefix`, 'Requested IPv6 prefix', r.prefix, 'text', '/0–/128; must fit within the base.')}${field(`r-${i}-locked`, 'Locked IPv6 subnet (optional)', r.locked, 'text', 'Must be aligned and match the requested prefix.')}${rowControls(i, rows.length)}</fieldset>`).join('')}</div>${button('add-row', '+ Add IPv6 subnet')}`
                 : v.mode === 'route'
                   ? f(
                       'destination',
@@ -266,7 +252,7 @@ export function formFields(tab: Tab, v: Values, rows: Values[]): string {
       `<div class="form-grid">${s('order', 'Allocation order', [
         ['auto', 'Largest first (recommended)'],
         ['manual', 'Manual row order'],
-      ])}${f('reserve', 'Reserve %', 'number', 'Applied to each row.', 'min="0" step="0.1"')}</div><div class="row-list">${rows.map((r, i) => `<fieldset data-row="${i}"><legend>Network ${i + 1}</legend><div class="form-grid">${field(`r-${i}-name`, 'Name', r.name)}${field(`r-${i}-hosts`, 'Required hosts', r.hosts, 'number', '', 'min="1"')}</div>${select(`r-${i}-mode`, 'Address mode', r.mode, modes)}${field(`r-${i}-locked`, 'Locked subnet (optional)', r.locked || '', 'text', 'Leave empty for automatic allocation.')}<div class="row-actions">${button('up', '↑ Move', `data-index="${i}" ${i === 0 ? 'disabled' : ''}`)}${button('down', '↓ Move', `data-index="${i}" ${i === rows.length - 1 ? 'disabled' : ''}`)}${button('remove-row', 'Remove', `data-index="${i}"`)}</div></fieldset>`).join('')}</div>${button('add-row', '+ Add network')}`
+      ])}${f('reserve', 'Reserve %', 'number', 'Applied to each row.', 'min="0" step="0.1"')}</div><div class="row-list">${rows.map((r, i) => `<fieldset data-row="${i}"><legend>Network ${i + 1}</legend><div class="form-grid">${field(`r-${i}-name`, 'Name', r.name)}${field(`r-${i}-hosts`, 'Required hosts', r.hosts, 'number', '', 'min="1"')}</div>${select(`r-${i}-mode`, 'Address mode', r.mode, modes)}${field(`r-${i}-locked`, 'Locked subnet (optional)', r.locked || '', 'text', 'Leave empty for automatic allocation.')}${rowControls(i, rows.length)}</fieldset>`).join('')}</div>${button('add-row', '+ Add network')}`
     );
   if (tab === 'Static Routing')
     return (
@@ -307,7 +293,7 @@ export function formFields(tab: Tab, v: Values, rows: Values[]): string {
           `<div class="form-grid">${f('primary', 'Primary SVI IP (optional)')}${f('secondary', 'Secondary SVI IP (optional)')}</div><div class="form-grid">${f('priority1', 'Primary priority', 'number')}${f('priority2', 'Secondary priority', 'number')}</div>`
         : f('base', 'Base for host-based allocation') +
           button('allocate-vlans', 'Allocate subnets from host counts') +
-          `<div class="row-list">${rows.map((r, i) => `<fieldset data-row="${i}"><legend>VLAN ${esc(r.id)}</legend><div class="form-grid">${field(`r-${i}-id`, 'VLAN ID', r.id, 'number')}${field(`r-${i}-name`, 'Name', r.name)}</div><div class="form-grid">${field(`r-${i}-hosts`, 'Required hosts', r.hosts, 'number')}${field(`r-${i}-voice`, 'Voice VLAN (0 = none)', r.voice, 'number')}</div>${field(`r-${i}-network`, 'Assigned subnet', r.network)}${field(`r-${i}-gateway`, 'Gateway (optional)', r.gateway, 'text', 'Blank uses the first usable address.')}<div class="form-grid">${field(`r-${i}-ports`, 'Access-port range', r.ports)}${field(`r-${i}-trunk`, 'Trunk interface', r.trunk)}</div><div class="row-actions">${button('up', '↑ Move', `data-index="${i}" ${i === 0 ? 'disabled' : ''}`)}${button('down', '↓ Move', `data-index="${i}" ${i === rows.length - 1 ? 'disabled' : ''}`)}${button('remove-row', 'Remove', `data-index="${i}"`)}</div></fieldset>`).join('')}</div>${button('add-row', '+ Add VLAN')}`)
+          `<div class="row-list">${rows.map((r, i) => `<fieldset data-row="${i}"><legend>VLAN ${esc(r.id)}</legend><div class="form-grid">${field(`r-${i}-id`, 'VLAN ID', r.id, 'number')}${field(`r-${i}-name`, 'Name', r.name)}</div><div class="form-grid">${field(`r-${i}-hosts`, 'Required hosts', r.hosts, 'number')}${field(`r-${i}-voice`, 'Voice VLAN (0 = none)', r.voice, 'number')}</div>${field(`r-${i}-network`, 'Assigned subnet', r.network)}${field(`r-${i}-gateway`, 'Gateway (optional)', r.gateway, 'text', 'Blank uses the first usable address.')}<div class="form-grid">${field(`r-${i}-ports`, 'Access-port range', r.ports)}${field(`r-${i}-trunk`, 'Trunk interface', r.trunk)}</div>${rowControls(i, rows.length)}</fieldset>`).join('')}</div>${button('add-row', '+ Add VLAN')}`)
     );
   if (tab === 'DHCP/NAT')
     return (

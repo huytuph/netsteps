@@ -1,8 +1,8 @@
-import { hostsToPrefix, parseNetwork, subnet, HostRequirement, Subnet } from './ipv4';
-import { convert, Conversion } from './numbers';
+import { HostRequirement, hostsToPrefix, parseNetwork, subnet, Subnet } from './ipv4';
+import { compressIPv6, ipv6Address, ipv6StaticRoute, ipv6Subnet, parseIPv6 } from './ipv6';
+import { Conversion, convert } from './numbers';
+import { RouteResult, staticRoute } from './routing';
 import { planVlsm, Requirement, VlsmPlan } from './vlsm';
-import { staticRoute, RouteResult } from './routing';
-import { ipv6Address, ipv6Subnet, ipv6StaticRoute, parseIPv6, compressIPv6 } from './ipv6';
 export const topics = [
   'Decimal → Binary',
   'Binary → Decimal',

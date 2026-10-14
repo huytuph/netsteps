@@ -8,7 +8,7 @@ The website and source are public. Your calculations and saved scenarios stay in
 
 The visual theme follows the [Packet Tracer Catalogue](https://huytuph.github.io/packet-tracer-catalogue/): a blue gradient header, horizontal tabs, system typography, compact rounded panels, and matching light/dark palettes. All styling and fonts remain local.
 
-Calculation inputs start empty, including newly added VLSM/VLAN rows and custom practice inputs. Reset inputs restores the empty form. Required numeric fields must be entered explicitly; empty optional reserve/infrastructure fields mean no allowance, and an empty voice VLAN means no voice VLAN. Tool selectors and study/display preferences retain their initial selections. Saved scenarios restore the values you saved.
+Calculation inputs start empty, including newly added VLSM/VLAN rows and custom practice inputs. Each tool mode keeps an independent draft while you switch tools. Reset inputs clears the current mode. Required numeric fields must be entered explicitly; empty optional reserve/infrastructure fields mean no allowance, and an empty voice VLAN means no voice VLAN. Tool selectors and study/display preferences retain their initial selections. Saved scenarios restore the values you saved.
 
 ## Use it immediately
 
@@ -20,7 +20,7 @@ Both production HTML entry files include all application code and styling. Brows
 
 ## Local development
 
-Prerequisite: **Node.js 22.12 or newer**, with npm.
+Prerequisite: **Node.js 22.22.2+ (22.x), 24.15.0+ (24.x), or 26+**, with npm. These versions support the development test tools.
 
 ```sh
 cd netsteps
@@ -75,7 +75,8 @@ The source checkout does not track generated `dist/`. Release archives include `
 - The independent detail selector supports **Full Working**, **Standard**, **Short Exam Form**, and **Final Answer Only**.
 - Progressive hint mode reveals steps on demand. Practice answers remain hidden until revealed.
 - Copy answers, working, commands and Markdown tables; export allocation CSV, Markdown notes, a single scenario or the whole workspace as JSON.
-- JSON import validates the schema before applying it. It merges saved scenarios/history by ID, applies preferences, and retains the larger practice totals. It does not erase existing scenarios.
+- JSON import validates the schema before applying it. It merges saved scenarios/history by ID, keeps the latest 100 calculations in date order, applies preferences, and retains the larger practice totals. It does not erase existing scenarios.
+- Scenario names and practice answers survive explanation, detail and theme changes. Changed inputs retain a stale-result warning until recalculated.
 - Print styles remove navigation and action buttons. Print while a result is shown to produce study notes.
 
 ## Networking conventions
@@ -126,23 +127,28 @@ The source checkout does not track generated `dist/`. Release archives include `
 netsteps/
 ├── index.html                  # application shell
 ├── src/
-│   ├── calculators/            # pure calculation and validation functions
-│   │   ├── ipv4.ts             # addresses, masks, subnetting, host sizing, overlaps
-│   │   ├── ipv6.ts             # 128-bit address/prefix math, allocation and routes
-│   │   ├── numbers.ts          # octet and IPv4 base conversions
-│   │   ├── vlsm.ts             # aligned allocator and lock handling
-│   │   ├── routing.ts          # route generation and connected-network checks
-│   │   ├── services.ts         # VLAN, HSRP, DHCP and NAT
-│   │   └── practice.ts         # question generation and checking
-│   ├── explanations/lessons.ts # teaching methods over structured results
-│   ├── pages/                  # input definitions and calculator dispatch
-│   ├── components/ui.ts        # escaped semantic UI, copy, tables, downloads
-│   ├── app/storage.ts          # versioned local state and backup validation
+│   ├── app/                    # state, independent mode drafts, controller, actions, views
+│   │   ├── storage.ts          # version-1 backups and local persistence
+│   │   ├── history.ts          # shared merge, sorting and retention rules
+│   │   └── tools.ts            # tool descriptions and icons
+│   ├── calculators/            # pure IPv4/IPv6, VLSM, routing and services logic
+│   │   ├── dynamic-nat.ts      # pool validation and configuration
+│   │   ├── tunnelling.ts       # typed IPv4/IPv6 payload adapters
+│   │   ├── frame-relay.ts      # circuits and remote routes
+│   │   ├── ospfv3.ts           # multi-router IPv6 OSPF planning
+│   │   └── distance-vector.ts  # Bellman–Ford teaching model
+│   ├── explanations/           # structured lessons, methods and shared command explanations
+│   ├── pages/
+│   │   ├── features/           # per-feature forms, defaults and calculation adapters
+│   │   ├── forms.ts            # remaining calculator form composition
+│   │   ├── calculate.ts        # input parsing and calculator dispatch
+│   │   └── inputs.ts           # shared required-number and choice validation
+│   ├── components/             # escaped UI and reusable row controls
 │   ├── styles/                 # responsive themes and print rules
-│   └── main.ts                 # navigation and event coordination
+│   └── main.ts                 # application bootstrap
 ├── public/                     # local icon and app manifest
 ├── scripts/offline-build.mjs   # inline HTML and versioned offline cache
-├── tests/                      # Vitest unit tests
+├── tests/                      # Vitest calculation and jsdom interaction tests
 └── dist/                       # supplied production build
 ```
 
@@ -150,7 +156,7 @@ Calculators have no dependency on DOM or explanation rendering. Explanation modu
 
 ## Verification
 
-The 145 tests cover IPv4 `/0`, `/1`, `/24`, `/30`, `/31`, `/32`, endpoints, every mask prefix, all 256 octet values, malformed addresses/masks, host growth, VLSM alignment/fragmentation/locks/capacity/overlaps, static/default/floating routes and invalid next hops, HSRP conflicts, DHCP exclusion merging, VLAN overlaps, PAT and backup validation. IPv6 coverage includes compression ties/single zero groups, malformed and embedded addresses, binary round trips, all 129 prefix lengths, exact 128-bit capacity, range endpoints, allocation/lock conflicts, next-hop scope, six practice topics and saved-scenario compatibility. Additional tests cover every three-digit integer, large integer precision, dynamic NAT pool boundaries, reciprocal tunnels, Frame Relay circuits, OSPF IDs/areas, simultaneous/sequential distance-vector rounds, equal-cost paths, attached destinations and row input handling. The build validates generated service-worker JavaScript syntax.
+The 189 tests cover IPv4 `/0`, `/1`, `/24`, `/30`, `/31`, `/32`, endpoints, every mask prefix, all 256 octet values, malformed addresses/masks, host growth, VLSM alignment/fragmentation/locks/capacity/overlaps, static/default/floating routes and invalid next hops, HSRP conflicts, DHCP exclusion merging, VLAN overlaps, PAT and backup validation. IPv6 coverage includes compression ties/single zero groups, malformed and embedded addresses, binary round trips, all 129 prefix lengths, exact 128-bit capacity, range endpoints, allocation/lock conflicts, next-hop scope, six practice topics and saved-scenario compatibility. Additional tests cover every three-digit integer, large integer precision, dynamic NAT pool boundaries, reciprocal tunnels, Frame Relay circuits, OSPF IDs/areas, simultaneous/sequential distance-vector rounds, equal-cost paths, attached destinations and row input handling. Interaction tests exercise every workspace, representative calculation forms, independent IPv6/OSPF rows, row reorder/removal/reset, version-1 scenario restoration, scenario-name preservation, stale printing and practice answers. State tests cover history ordering/deduplication/retention and shared command explanations. The build validates generated service-worker JavaScript syntax. Vitest and jsdom are development-only dependencies; the deployed app has no runtime dependencies.
 
 ## License
 

@@ -1,15 +1,14 @@
 import {
   binaryIPv6,
-  compressIPv6,
   expandIPv6,
   hextets,
   ipv6Address,
-  IPv6Subnet,
   ipv6OverlapCheck,
   ipv6StaticRoute,
+  IPv6Subnet,
   planIPv6,
 } from '../calculators/ipv6';
-import type { Lesson, Step } from './lessons';
+import type { Lesson, Step } from './model';
 
 export function ipv6AddressLesson(r: ReturnType<typeof ipv6Address>): Lesson {
   const groups = hextets(r.value),

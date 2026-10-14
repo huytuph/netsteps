@@ -1,4 +1,4 @@
-import { Subnet, integer, ipToInt, overlaps, parseNetwork, requireHost, intToIp } from './ipv4';
+import { Subnet, intToIp, integer, ipToInt, overlaps, parseNetwork, requireHost } from './ipv4';
 import { interfaceName } from './routing';
 export function token(text: string, label: string): string {
   if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,31}$/.test(text))
@@ -101,7 +101,7 @@ export function hsrpPlan(input: HsrpInput) {
         `! L3 switch ${i + 1}\ninterface Vlan${input.vlan}\n ip address ${ip} ${net.mask}\n standby ${input.group} ip ${vip}\n standby ${input.group} priority ${priority}\n standby ${input.group} preempt\n no shutdown`,
     )
     .join('\n\n');
-  return { net, vip, primary, secondary, command };
+  return { net, vip, primary, secondary, command, input: { ...input } };
 }
 export interface DhcpInput {
   network: string;
@@ -164,7 +164,7 @@ export function dhcpPlan(input: DhcpInput) {
     ` lease ${input.lease === 0 ? 'infinite' : input.lease}`,
     ...(input.tftp ? [` option 150 ip ${input.tftp}`] : []),
   ].join('\n');
-  return { net, available, excluded: merged, command };
+  return { net, available, excluded: merged, command, input: { ...input } };
 }
 export function natPlan(network: string, inside: string, outside: string, acl: number) {
   const net = parseNetwork(network, true);
@@ -175,6 +175,9 @@ export function natPlan(network: string, inside: string, outside: string, acl: n
     throw new Error('Inside and outside interfaces must be distinct.');
   return {
     net,
+    inside: intIn,
+    outside: intOut,
+    acl,
     command: `access-list ${acl} permit ${net.network} ${net.wildcard}\ninterface ${intIn}\n ip nat inside\ninterface ${intOut}\n ip nat outside\nip nat inside source list ${acl} interface ${intOut} overload`,
   };
 }

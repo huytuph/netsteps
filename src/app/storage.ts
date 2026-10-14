@@ -1,3 +1,5 @@
+import { mergeHistory } from './history';
+
 export const tabs = [
   'Dashboard',
   'Number Systems',
@@ -98,7 +100,7 @@ export function validateWorkspace(value: unknown): Workspace {
     version: 1,
     preferences: { ...v.preferences },
     saved: v.saved.map(validateEntry),
-    history: v.history.map(validateEntry).slice(0, 100),
+    history: mergeHistory([], v.history.map(validateEntry)),
     score: { ...v.score },
   };
 }
