@@ -49,7 +49,7 @@ let method = workspace.preferences.method,
 let snapshot: { values: Values; rows: Values[] } | null = null;
 let practiceAnswers: Values = {};
 const drafts: Partial<Record<Tab, { values: Values; rows: Values[] }>> = {};
-const icons = ['◈', '01', '▦', '⇆', '↗', '◇', '⇄', '✎', '⚙'];
+const icons = ['◈', '01', '▦', '⑥', '⇆', '↗', '◇', '⇄', '✎', '⚙'];
 function saveStorage() {
   try {
     persist(workspace);
@@ -88,7 +88,7 @@ function capture() {
   if (form) {
     const d = data();
     d.values = { ...d.values, ...readValues(form) };
-    d.rows = readRows(form);
+    if (form.querySelector('.row-list')) d.rows = readRows(form);
   }
 }
 function data() {
@@ -129,13 +129,13 @@ function render() {
 }
 function dashboard() {
   const cards = tabs
-    .slice(1, 8)
+    .slice(1, -1)
     .map(
       (t, i) =>
         `<button class="tool-card" data-tab="${esc(t)}"><span class="card-icon">${icons[i + 1]}</span><span class="card-number">0${i + 1}</span><h3>${esc(t)}</h3><p>${esc(descriptions[t])}</p><span class="card-link">Open workspace <span>↗</span></span></button>`,
     )
     .join('');
-  return `<section class="hero"><div class="hero-copy"><span class="hero-tag">YOUR PERSONAL NETWORK LAB</span><h2>From inputs<br>to understanding.</h2><p>Calculate, follow the manual steps, and practice.<br>Everything happens right here in your browser.</p><div class="hero-actions"><button data-tab="Subnetting" class="primary">Start subnetting <span>→</span></button><button data-tab="Practice" class="hero-secondary">Try a practice question</button></div></div><div class="network-visual" aria-hidden="true"><div class="visual-caption">172.16.1.0 /24</div><div class="net-root">NETWORK <b>256 addresses</b></div><div class="net-branches"><div>/25<b>128</b></div><div>/26<b>64</b></div><div>/27<b>32</b></div><div>/27<b>32</b></div></div><div class="visual-bottom">ONE NETWORK. MANY POSSIBILITIES.</div></div></section><div class="stats"><div><span>Study tools</span><b>7 <small>workspaces</small></b></div><div><span>Saved scenarios</span><b>${workspace.saved.length} <small>on this device</small></b></div><div><span>Practice progress</span><b>${workspace.score.correct}/${workspace.score.attempted} <small>correct</small></b></div><div><span>Connection required</span><b>None <small>for calculations</small></b></div></div><div class="section-title"><h2>Choose your next topic</h2><span>INPUT → WORKING → RESULT</span></div><div class="tool-grid">${cards}</div><div class="dashboard-lists"><section class="panel"><div class="section-title"><h2>Saved scenarios</h2><span>${workspace.saved.length}</span></div>${entries(workspace.saved, 'saved')}</section><section class="panel"><div class="section-title"><h2>Recent calculations</h2>${button('clear-history', 'Clear history')}</div>${entries(workspace.history.slice(0, 10), 'history')}</section></div>`;
+  return `<section class="hero"><div class="hero-copy"><span class="hero-tag">YOUR PERSONAL NETWORK LAB</span><h2>From inputs<br>to understanding.</h2><p>Calculate, follow the manual steps, and practice.<br>Everything happens right here in your browser.</p><div class="hero-actions"><button data-tab="Subnetting" class="primary">Start subnetting <span>→</span></button><button data-tab="Practice" class="hero-secondary">Try a practice question</button></div></div><div class="network-visual" aria-hidden="true"><div class="visual-caption">172.16.1.0 /24</div><div class="net-root">NETWORK <b>256 addresses</b></div><div class="net-branches"><div>/25<b>128</b></div><div>/26<b>64</b></div><div>/27<b>32</b></div><div>/27<b>32</b></div></div><div class="visual-bottom">ONE NETWORK. MANY POSSIBILITIES.</div></div></section><div class="stats"><div><span>Study tools</span><b>${tabs.length - 2} <small>workspaces</small></b></div><div><span>Saved scenarios</span><b>${workspace.saved.length} <small>on this device</small></b></div><div><span>Practice progress</span><b>${workspace.score.correct}/${workspace.score.attempted} <small>correct</small></b></div><div><span>Connection required</span><b>None <small>for calculations</small></b></div></div><div class="section-title"><h2>Choose your next topic</h2><span>INPUT → WORKING → RESULT</span></div><div class="tool-grid">${cards}</div><div class="dashboard-lists"><section class="panel"><div class="section-title"><h2>Saved scenarios</h2><span>${workspace.saved.length}</span></div>${entries(workspace.saved, 'saved')}</section><section class="panel"><div class="section-title"><h2>Recent calculations</h2>${button('clear-history', 'Clear history')}</div>${entries(workspace.history.slice(0, 10), 'history')}</section></div>`;
 }
 function entries(list: Entry[], kind: string) {
   return list.length
@@ -294,6 +294,7 @@ function generate() {
             prefix: v.customPrefix,
             hosts: Number(v.customHosts),
             nextHop: v.customNextHop,
+            exitInterface: v.customExit || '',
             requirements: v.customRows
               .split('\n')
               .filter((x) => x.trim())
@@ -493,7 +494,7 @@ async function act(el: HTMLButtonElement) {
     render();
   } else if (action === 'default-route') {
     capture();
-    d.values.destination = '0.0.0.0/0';
+    d.values.destination = tab === 'IPv6' ? '::/0' : '0.0.0.0/0';
     lesson = null;
     render();
   } else if (action === 'next-step' || action === 'practice-hint') {

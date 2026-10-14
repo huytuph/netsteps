@@ -2,6 +2,7 @@ export const tabs = [
   'Dashboard',
   'Number Systems',
   'Subnetting',
+  'IPv6',
   'VLSM',
   'Static Routing',
   'VLAN/HSRP',

@@ -3,6 +3,7 @@ import { Conversion } from '../calculators/numbers';
 import { VlsmPlan } from '../calculators/vlsm';
 import { RouteResult } from '../calculators/routing';
 import type { Question } from '../calculators/practice';
+import { ipv6AddressLesson, ipv6SubnetLesson, ipv6RouteLesson } from './ipv6';
 export interface Step {
   title: string;
   text: string;
@@ -501,6 +502,12 @@ export function questionLesson(question: Question): Lesson {
   const c = question.calculation;
   if (!c) throw new Error('This practice question has no calculation.');
   switch (c.kind) {
+    case 'ipv6-address':
+      return ipv6AddressLesson(c.result);
+    case 'ipv6-subnet':
+      return ipv6SubnetLesson(c.result);
+    case 'ipv6-route':
+      return ipv6RouteLesson(c.result);
     case 'number':
       return numberLesson(c.result);
     case 'hosts':

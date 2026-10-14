@@ -2,6 +2,7 @@ import { hostsToPrefix, parseNetwork, subnet, HostRequirement, Subnet } from './
 import { convert, Conversion } from './numbers';
 import { planVlsm, Requirement, VlsmPlan } from './vlsm';
 import { staticRoute, RouteResult } from './routing';
+import { ipv6Address, ipv6Subnet, ipv6StaticRoute, parseIPv6, compressIPv6 } from './ipv6';
 export const topics = [
   'Decimal → Binary',
   'Binary → Decimal',
@@ -14,6 +15,12 @@ export const topics = [
   'Host range',
   'VLSM',
   'Static routing',
+  'IPv6 compression',
+  'IPv6 expansion',
+  'IPv6 address type',
+  'IPv6 network prefix',
+  'IPv6 prefix capacity',
+  'IPv6 static routing',
 ] as const;
 export type Topic = (typeof topics)[number];
 export interface Question {
@@ -27,7 +34,10 @@ export interface Question {
     | { kind: 'hosts'; result: HostRequirement }
     | { kind: 'subnet'; result: Subnet }
     | { kind: 'vlsm'; result: VlsmPlan }
-    | { kind: 'route'; result: RouteResult };
+    | { kind: 'route'; result: RouteResult }
+    | { kind: 'ipv6-address'; result: ReturnType<typeof ipv6Address> }
+    | { kind: 'ipv6-subnet'; result: ReturnType<typeof ipv6Subnet> }
+    | { kind: 'ipv6-route'; result: ReturnType<typeof ipv6StaticRoute> };
 }
 export interface CustomQuestion {
   ip: string;
@@ -35,9 +45,11 @@ export interface CustomQuestion {
   hosts: number;
   requirements: Requirement[];
   nextHop: string;
+  exitInterface?: string;
 }
 export function makeQuestion(topic: Topic, difficulty: string, custom?: CustomQuestion): Question {
   if (!topics.includes(topic)) throw new Error('Choose a supported practice topic.');
+  if (topic.startsWith('IPv6')) return makeIPv6Question(topic, difficulty, custom);
   const random = (n: number) => Math.floor(Math.random() * n);
   const octet = difficulty === 'Easy' ? random(32) : random(256);
   const prefix =
@@ -197,6 +209,44 @@ export function makeQuestion(topic: Topic, difficulty: string, custom?: CustomQu
 }
 export function checkAnswer(given: string, expected: string, topic: Topic): boolean {
   const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (topic.startsWith('IPv6')) {
+    try {
+      if (topic === 'IPv6 compression') return given.trim() === expected;
+      if (topic === 'IPv6 expansion')
+        return (
+          /^[\da-f]{4}(:[\da-f]{4}){7}$/i.test(given.trim()) &&
+          parseIPv6(given) === parseIPv6(expected)
+        );
+      if (topic === 'IPv6 network prefix') {
+        const parts = given.trim().split('/'),
+          answer = expected.split('/');
+        return (
+          parts.length === 2 &&
+          /^\d{1,3}$/.test(parts[1]) &&
+          Number(parts[1]) === Number(answer[1]) &&
+          parseIPv6(parts[0]) === parseIPv6(answer[0])
+        );
+      }
+      if (topic === 'IPv6 static routing') {
+        const canonical = (text: string) =>
+          normalize(text)
+            .split(' ')
+            .map((token) => {
+              if (!token.includes(':')) return token;
+              const [ip, prefix, ...rest] = token.split('/');
+              if (rest.length || (prefix !== undefined && !/^\d{1,3}$/.test(prefix)))
+                throw new Error('Invalid route prefix');
+              return (
+                compressIPv6(parseIPv6(ip)) + (prefix === undefined ? '' : '/' + Number(prefix))
+              );
+            })
+            .join(' ');
+        return canonical(given) === canonical(expected);
+      }
+    } catch {
+      return false;
+    }
+  }
   if (topic === 'Hosts → CIDR')
     return normalize(given).replace(/^\//, '') === expected.replace(/^\//, '');
   if (topic === 'Decimal → Binary')
@@ -207,4 +257,108 @@ export function checkAnswer(given: string, expected: string, topic: Topic): bool
       parseInt(given.replace(/^0x/i, ''), 16) === parseInt(expected, 16)
     );
   return normalize(given) === normalize(expected);
+}
+
+function makeIPv6Question(topic: Topic, difficulty: string, custom?: CustomQuestion): Question {
+  const random = (n: number) => Math.floor(Math.random() * n);
+  const special = [
+    '::',
+    '::1',
+    'fe80::1',
+    'fd12:3456::1',
+    'ff02::1',
+    '2001:db8::1',
+    '2001:4860::1',
+  ];
+  const ip =
+    custom?.ip ||
+    (topic === 'IPv6 address type'
+      ? special[random(special.length)]
+      : difficulty === 'Easy'
+        ? `2001:db8:${random(65536).toString(16)}::${(random(255) + 1).toString(16)}`
+        : difficulty === 'Hard'
+          ? `2001:db8:0:${random(65536).toString(16)}:0:0:${random(65536).toString(16)}:1`
+          : `2001:db8:0:0:${random(65536).toString(16)}:0:0:1`);
+  if (custom && !custom.ip.trim()) throw new Error('Enter a custom IPv6 address.');
+  const r = ipv6Address(ip);
+  const q: Question = {
+    topic,
+    prompt: '',
+    answers: [],
+    hints: [],
+    working: [],
+    calculation: { kind: 'ipv6-address', result: r },
+  };
+  if (topic === 'IPv6 compression') {
+    q.prompt = `Compress ${r.expanded} using the canonical lowercase format.`;
+    q.answers = [{ label: 'Compressed IPv6', value: r.compressed }];
+    q.hints = [
+      'Remove leading zeros from each hextet.',
+      'Use :: once for the longest run of at least two zero hextets; choose the leftmost run on a tie.',
+    ];
+  } else if (topic === 'IPv6 expansion') {
+    q.prompt = `Expand ${r.compressed} to eight four-digit hextets.`;
+    q.answers = [{ label: 'Expanded IPv6', value: r.expanded }];
+    q.hints = [
+      'Count the visible hextets; :: fills the difference from eight.',
+      'Pad every hextet to four hexadecimal digits.',
+    ];
+  } else if (topic === 'IPv6 address type') {
+    q.prompt = `Classify ${r.compressed}. Use one label: Unspecified, Loopback, Link-local unicast, Unique-local unicast, Multicast, Documentation, Global unicast space, IPv4-mapped, Deprecated site-local, Other / special-purpose space.`;
+    q.answers = [{ label: 'Address type', value: r.type }];
+    q.hints = [
+      'Check :: and ::1 first, then inspect the high-order prefix bits.',
+      'fe80::/10 is link-local; fc00::/7 is unique-local; ff00::/8 is multicast.',
+    ];
+  } else {
+    const prefix = custom
+      ? custom.prefix
+      : difficulty === 'Easy'
+        ? '64'
+        : difficulty === 'Hard'
+          ? String([0, 47, 63, 65, 73, 127, 128][random(7)])
+          : String([48, 56, 60, 64][random(4)]);
+    const n = ipv6Subnet(ip, prefix);
+    q.calculation = { kind: 'ipv6-subnet', result: n };
+    if (topic === 'IPv6 network prefix') {
+      q.prompt = `Find the normalized network/prefix for ${r.compressed}/${n.prefix}.`;
+      q.answers = [{ label: 'IPv6 network / prefix', value: `${n.network}/${n.prefix}` }];
+      q.hints = [
+        `Keep the first ${n.prefix} bits.`,
+        `Clear the last ${n.hostBits} bits; a boundary may cut through a hextet.`,
+      ];
+    } else if (topic === 'IPv6 prefix capacity') {
+      q.prompt = `How many total address bit patterns are in /${n.prefix}? Enter the exact decimal integer.`;
+      q.answers = [{ label: 'Total addresses', value: String(n.size) }];
+      q.hints = [
+        `128 − ${n.prefix} = ${n.hostBits} remaining bits.`,
+        'Use 2^(remaining bits). IPv6 has no broadcast; do not subtract two.',
+      ];
+    } else {
+      const hop = custom ? custom.nextHop : difficulty === 'Hard' ? 'fe80::2' : '2001:db8:ffff::2';
+      const exit = custom
+        ? custom.exitInterface || ''
+        : difficulty === 'Hard'
+          ? 'GigabitEthernet0/0'
+          : '';
+      const route = ipv6StaticRoute({
+        destination: `${n.network}/${n.prefix}`,
+        nextHop: hop,
+        exitInterface: exit,
+        distance: 1,
+        connected: [],
+        floating: false,
+        primaryDistance: 0,
+      });
+      q.calculation = { kind: 'ipv6-route', result: route };
+      q.prompt = `Write a Cisco IPv6 static route to ${n.network}/${n.prefix} via ${route.nextHop}${exit ? ' on ' + exit : ''} (distance 1, omit the distance suffix).`;
+      q.answers = [{ label: 'IPv6 route command', value: route.command }];
+      q.hints = [
+        'Syntax: ipv6 route destination/prefix [exit-interface] next-hop.',
+        'A link-local next hop needs the exit interface. IPv6 uses a prefix length, not a dotted mask.',
+      ];
+    }
+  }
+  q.working = [`Expanded: ${r.expanded}`, `Compressed: ${r.compressed}`, `Type: ${r.type}`, r.note];
+  return q;
 }

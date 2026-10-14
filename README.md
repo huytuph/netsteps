@@ -1,6 +1,6 @@
 # NetSteps
 
-A privacy-focused, offline networking study workspace built with **TypeScript, HTML, CSS, Vite and Vitest**. It shows the manual working behind the answer. Users enter real IP addresses and networks directly.
+A privacy-focused, offline **IPv4 and IPv6** networking study workspace built with **TypeScript, HTML, CSS, Vite and Vitest**. It shows the manual working behind the answer. Users enter real IP addresses and networks directly.
 
 **[Open NetSteps](https://huytuph.github.io/netsteps/)** · [Source repository](https://github.com/huytuph/netsteps)
 
@@ -53,17 +53,18 @@ The source checkout does not track generated `dist/`. Release archives include `
 
 ## Workspaces
 
-| Tab            | Features                                                                                                                                                                                                                             |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Dashboard      | Tool shortcuts, saved scenarios, recent calculations, practice score, privacy/cache status                                                                                                                                           |
-| Number Systems | All decimal/binary/hex octet conversions, 8-bit padding, IPv4 ↔ binary, division/remainder, place values, powers of two, nibble grouping                                                                                             |
-| Subnetting     | CIDR or dotted mask input, network, broadcast, usable range, mask, wildcard, host/network bits, capacity, block increment, boundaries, neighboring subnets, binary AND, hosts-to-CIDR with growth/infrastructure, overlap checker    |
-| VLSM           | Add/remove/reorder rows, automatic largest-first or manual order, per-row LAN/P2P/host mode, locked allocations, aligned placement around locks, overlap/capacity validation, free ranges, unused usable capacity, allocation tables |
-| Static Routing | Next-hop, exit-interface and fully specified routes, default route, distance, floating route, connected-network analysis, next-hop validation, /30 or /31 transit-link allocation                                                    |
-| VLAN/HSRP      | VLAN IDs/names, host-based allocation with gateway allowance, manual subnet/gateway, access-port ranges, trunk membership, voice VLAN tagging, Cisco study commands, configurable HSRP VIP/SVIs/group/priorities and conflict checks |
-| DHCP/NAT       | Pool network/gateway/exclusions, merged exclusions, gateway reservation, DNS/domain/lease, TFTP Option 150, NAT/PAT ACL wildcard and interface roles                                                                                 |
-| Practice       | Eleven question topics, easy/medium/hard/custom questions, per-field checking, progressive hints, hidden answers, alternative working, first-attempt score                                                                           |
-| Settings       | System/light/dark theme, default explanation/detail, optional history, backup import/export and local data reset                                                                                                                     |
+| Tab            | Features                                                                                                                                                                                                                                               |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Dashboard      | Tool shortcuts, saved scenarios, recent calculations, practice score, privacy/cache status                                                                                                                                                             |
+| Number Systems | All decimal/binary/hex octet conversions, 8-bit padding, IPv4 ↔ binary, division/remainder, place values, powers of two, nibble grouping                                                                                                               |
+| Subnetting     | CIDR or dotted mask input, network, broadcast, usable range, mask, wildcard, host/network bits, capacity, block increment, boundaries, neighboring subnets, binary AND, hosts-to-CIDR with growth/infrastructure, overlap checker                      |
+| IPv6           | Address expansion/compression, hexadecimal ↔ 128-bit binary, hextet working, address types/scope, solicited-node multicast, prefix ranges/capacity, adjacent prefixes, allocation by prefix with locks, overlap checks, static/default/floating routes |
+| VLSM           | Add/remove/reorder rows, automatic largest-first or manual order, per-row LAN/P2P/host mode, locked allocations, aligned placement around locks, overlap/capacity validation, free ranges, unused usable capacity, allocation tables                   |
+| Static Routing | Next-hop, exit-interface and fully specified routes, default route, distance, floating route, connected-network analysis, next-hop validation, /30 or /31 transit-link allocation                                                                      |
+| VLAN/HSRP      | VLAN IDs/names, host-based allocation with gateway allowance, manual subnet/gateway, access-port ranges, trunk membership, voice VLAN tagging, Cisco study commands, configurable HSRP VIP/SVIs/group/priorities and conflict checks                   |
+| DHCP/NAT       | Pool network/gateway/exclusions, merged exclusions, gateway reservation, DNS/domain/lease, TFTP Option 150, NAT/PAT ACL wildcard and interface roles                                                                                                   |
+| Practice       | Seventeen IPv4/IPv6 question topics, easy/medium/hard/custom questions, per-field checking, progressive hints, hidden answers, alternative working, first-attempt score                                                                                |
+| Settings       | System/light/dark theme, default explanation/detail, optional history, backup import/export and local data reset                                                                                                                                       |
 
 ## Explanations and study notes
 
@@ -75,6 +76,19 @@ The source checkout does not track generated `dist/`. Release archives include `
 - Print styles remove navigation and action buttons. Print while a result is shown to produce study notes.
 
 ## Networking conventions
+
+### IPv6
+
+- The **IPv6** tab has six tools: address formats/type, binary-to-IPv6, prefix analysis, subnet allocation, overlap checking and IPv6 routes. All new address, prefix and row inputs start blank. Save/copy/export/print use the same controls as IPv4, with no additional network services.
+- Address parsing supports compressed, expanded and trailing embedded IPv4 forms. Canonical hex output follows [RFC 5952](https://www.rfc-editor.org/rfc/rfc5952.html): lowercase, no leading hextet zeros, longest run of two or more zero hextets compressed, leftmost run on ties. Embedded IPv4 input is displayed in pure hexadecimal. Brackets and zone IDs are rejected; enter an exit interface separately for routes.
+- Address types include unspecified, loopback, multicast/scope, link-local, unique-local, documentation, IPv4-mapped, deprecated site-local and global unicast space. Classification is educational, not an allocation/Internet-reachability check. Anycast use requires configuration context. See [RFC 4291](https://www.rfc-editor.org/rfc/rfc4291.html), [RFC 4193](https://www.rfc-editor.org/rfc/rfc4193.html) and [RFC 5156](https://www.rfc-editor.org/rfc/rfc5156.html).
+- Prefix math uses exact `BigInt` arithmetic over all 128 bits, including `/0`, `/127`, `/128` and boundaries within a hextet. Results show total bit patterns and first/last range addresses. IPv6 has no broadcast address and does not use IPv4's `−2` LAN formula. These totals do not guarantee that every address can be assigned; account for reserved and anycast uses.
+- Allocate by requested prefix length, with automatic largest-first or manual order, optional aligned locks and free-range accounting. Use `/64` for ordinary SLAAC LANs ([RFC 4862](https://www.rfc-editor.org/rfc/rfc4862.html)); `/127` applies to inter-router point-to-point links ([RFC 6164](https://www.rfc-editor.org/rfc/rfc6164.html)); `/128` identifies a single address. The planner also handles aggregate allocations.
+- IPv6 route commands use `ipv6 route destination/prefix [interface] [next-hop] [distance]`. Link-local next hops require the exit interface. Local/self, invalid-neighbor and floating-distance validation are included. Supplied connected prefixes support reachability/overlap warnings; real topology and device state remain outside the calculator. See [Cisco IPv6 static routing](https://www.cisco.com/c/en/us/td/docs/routers/ios/config/17-x/ip-routing/b-ip-routing/m_ip6-route-static-xe.html).
+- Six IPv6 practice topics cover compression, expansion, address type, network prefix, exact capacity and static routes. Compression requires canonical lowercase output, expansion requires eight four-digit hextets, and prefix/route questions accept equivalent valid address spellings.
+- VLAN/HSRP and DHCP/NAT planners remain IPv4 tools. This release does not generate DHCPv6, IPv6 HSRP, NAT64, or dynamic-routing configurations.
+
+### IPv4
 
 - Traditional LAN capacity is `2^(32-prefix) − 2`. Host requirements use `/30` or larger by default, including a one-host LAN.
 - `/31` uses both addresses **only for point-to-point links**, following [RFC 3021](https://www.rfc-editor.org/info/rfc3021/). `/32` is a single host route. Neither has a directed broadcast in this toolkit.
@@ -101,6 +115,7 @@ netsteps/
 ├── src/
 │   ├── calculators/            # pure calculation and validation functions
 │   │   ├── ipv4.ts             # addresses, masks, subnetting, host sizing, overlaps
+│   │   ├── ipv6.ts             # 128-bit address/prefix math, allocation and routes
 │   │   ├── numbers.ts          # octet and IPv4 base conversions
 │   │   ├── vlsm.ts             # aligned allocator and lock handling
 │   │   ├── routing.ts          # route generation and connected-network checks
@@ -122,7 +137,7 @@ Calculators have no dependency on DOM or explanation rendering. Explanation modu
 
 ## Verification
 
-The tests cover `/0`, `/1`, `/24`, `/30`, `/31`, `/32`, IPv4 endpoints, every mask prefix, all 256 octet values, malformed addresses/masks, host growth, VLSM alignment/fragmentation/locks/capacity/overlaps, static/default/floating routes and invalid next hops, HSRP conflicts, DHCP exclusion merging, VLAN overlaps, PAT and backup validation. The build validates generated service-worker JavaScript syntax.
+The 127 tests cover IPv4 `/0`, `/1`, `/24`, `/30`, `/31`, `/32`, endpoints, every mask prefix, all 256 octet values, malformed addresses/masks, host growth, VLSM alignment/fragmentation/locks/capacity/overlaps, static/default/floating routes and invalid next hops, HSRP conflicts, DHCP exclusion merging, VLAN overlaps, PAT and backup validation. IPv6 coverage includes compression ties/single zero groups, malformed and embedded addresses, binary round trips, all 129 prefix lengths, exact 128-bit capacity, range endpoints, allocation/lock conflicts, next-hop scope, six practice topics and saved-scenario compatibility. The build validates generated service-worker JavaScript syntax.
 
 ## License
 

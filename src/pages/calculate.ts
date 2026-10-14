@@ -11,6 +11,22 @@ import {
 import { convert, convertIPv4, NumberBase } from '../calculators/numbers';
 import { planVlsm, Requirement } from '../calculators/vlsm';
 import { staticRoute } from '../calculators/routing';
+import {
+  compressIPv6,
+  ipv6Address,
+  ipv6OverlapCheck,
+  ipv6StaticRoute,
+  ipv6Subnet,
+  parseBinaryIPv6,
+  planIPv6,
+} from '../calculators/ipv6';
+import {
+  ipv6AddressLesson,
+  ipv6OverlapLesson,
+  ipv6PlanLesson,
+  ipv6RouteLesson,
+  ipv6SubnetLesson,
+} from '../explanations/ipv6';
 import { dhcpPlan, hsrpPlan, natPlan, vlanPlan } from '../calculators/services';
 import {
   Lesson,
@@ -35,6 +51,36 @@ export function requiredNumber(value: string, label: string): number {
   return Number(value);
 }
 export function calculate(tab: Tab, v: Values, rows: Values[]): Lesson {
+  if (tab === 'IPv6') {
+    if (v.mode === 'subnet') return ipv6SubnetLesson(ipv6Subnet(v.address, v.prefix));
+    if (v.mode === 'overlap')
+      return ipv6OverlapLesson(ipv6OverlapCheck(v.networks.split('\n').filter((x) => x.trim())));
+    if (v.mode === 'plan')
+      return ipv6PlanLesson(
+        planIPv6(
+          v.base,
+          rows.map((r) => ({ name: r.name, prefix: r.prefix, locked: r.locked })),
+          v.order !== 'manual',
+        ),
+      );
+    if (v.mode === 'route')
+      return ipv6RouteLesson(
+        ipv6StaticRoute({
+          destination: v.destination,
+          nextHop: v.nextHop,
+          exitInterface: v.exit,
+          localAddress: v.local,
+          connected: v.connected.split('\n'),
+          distance: requiredNumber(v.distance, 'Administrative distance'),
+          floating: v.floating === 'on',
+          primaryDistance:
+            v.floating === 'on' ? requiredNumber(v.primaryDistance, 'Primary route distance') : 0,
+        }),
+      );
+    return ipv6AddressLesson(
+      ipv6Address(v.mode === 'binary' ? compressIPv6(parseBinaryIPv6(v.binary)) : v.address),
+    );
+  }
   if (tab === 'Number Systems') {
     if (v.mode === 'octet')
       return numberLesson(

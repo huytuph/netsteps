@@ -5,6 +5,7 @@ export const descriptions: Record<Tab, string> = {
   Dashboard: 'Your networking study workspace.',
   'Number Systems': 'See how every bit, digit and octet is built.',
   Subnetting: 'Find the boundaries. Understand the working.',
+  IPv6: 'Expand addresses, plan prefixes, and understand IPv6 routing.',
   VLSM: 'Give every network room to grow.',
   'Static Routing': 'Connect the destination to the next hop.',
   'VLAN/HSRP': 'Plan segmented networks and resilient gateways.',
@@ -33,6 +34,22 @@ export const baseValues: Partial<Record<Tab, Values>> = {
     networks: '',
   },
   VLSM: { base: '', order: 'auto', reserve: '' },
+  IPv6: {
+    mode: 'address',
+    address: '',
+    binary: '',
+    prefix: '',
+    base: '',
+    order: 'auto',
+    networks: '',
+    destination: '',
+    nextHop: '',
+    exit: '',
+    local: '',
+    connected: '',
+    distance: '',
+    primaryDistance: '',
+  },
   'Static Routing': {
     mode: 'route',
     destination: '',
@@ -84,12 +101,13 @@ export const baseValues: Partial<Record<Tab, Values>> = {
   },
 };
 export function blankRow(tab: Tab): Values {
+  if (tab === 'IPv6') return { name: '', prefix: '', locked: '' };
   return tab === 'VLSM'
     ? { name: '', hosts: '', mode: 'lan', locked: '' }
     : { id: '', name: '', hosts: '', network: '', gateway: '', ports: '', voice: '', trunk: '' };
 }
 export function initialRows(tab: Tab): Values[] {
-  return tab === 'VLSM' || tab === 'VLAN/HSRP' ? [blankRow(tab)] : [];
+  return tab === 'VLSM' || tab === 'VLAN/HSRP' || tab === 'IPv6' ? [blankRow(tab)] : [];
 }
 const modes: [string, string][] = [
   ['lan', 'LAN (/30 or larger)'],
@@ -102,6 +120,70 @@ export function formFields(tab: Tab, v: Values, rows: Values[]): string {
   const s = (key: string, label: string, options: [string, string][], extra = '') =>
     select(key, label, v[key] || '', options, extra);
   const mode = (options: [string, string][]) => s('mode', 'Tool', options, 'data-mode');
+  if (tab === 'IPv6')
+    return (
+      mode([
+        ['address', 'Address formats & type'],
+        ['binary', 'Binary → IPv6'],
+        ['subnet', 'Prefix / subnet analysis'],
+        ['plan', 'Subnet allocation planner'],
+        ['overlap', 'Check IPv6 overlaps'],
+        ['route', 'IPv6 static / default / floating route'],
+      ]) +
+      (v.mode === 'binary'
+        ? area(
+            'binary',
+            '128-bit binary address',
+            v.binary,
+            '128 bits, or eight colon-separated groups of 16 bits.',
+          )
+        : v.mode === 'subnet'
+          ? f('address', 'IPv6 address') +
+            f('prefix', 'IPv6 prefix length', 'text', '/0–/128. No dotted mask and no broadcast.')
+          : v.mode === 'overlap'
+            ? area(
+                'networks',
+                'IPv6 networks to compare',
+                v.networks,
+                'One IPv6/CIDR per line. Host bits are normalized before comparison.',
+              )
+            : v.mode === 'plan'
+              ? f(
+                  'base',
+                  'IPv6 base network',
+                  'text',
+                  'Aligned IPv6/CIDR. For example 2001:db8::/48.',
+                ) +
+                s('order', 'Allocation order', [
+                  ['auto', 'Largest first (recommended)'],
+                  ['manual', 'Manual row order'],
+                ]) +
+                `<p class="note">Plan /64 LANs, /127 router links, /128 host routes, or aggregate prefixes. Sizes are based on prefixes; no IPv4 host-count rule.</p><div class="row-list">${rows.map((r, i) => `<fieldset data-row="${i}"><legend>IPv6 subnet ${i + 1}</legend>${field(`r-${i}-name`, 'Name', r.name)}${field(`r-${i}-prefix`, 'Requested IPv6 prefix', r.prefix, 'text', '/0–/128; must fit within the base.')}${field(`r-${i}-locked`, 'Locked IPv6 subnet (optional)', r.locked, 'text', 'Must be aligned and match the requested prefix.')}<div class="row-actions">${button('up', '↑ Move', `data-index="${i}" ${i === 0 ? 'disabled' : ''}`)}${button('down', '↓ Move', `data-index="${i}" ${i === rows.length - 1 ? 'disabled' : ''}`)}${button('remove-row', 'Remove', `data-index="${i}"`)}</div></fieldset>`).join('')}</div>${button('add-row', '+ Add IPv6 subnet')}`
+              : v.mode === 'route'
+                ? f(
+                    'destination',
+                    'IPv6 destination network',
+                    'text',
+                    'Use ::/0 for a default route.',
+                  ) +
+                  button('default-route', 'Use default route') +
+                  `<div class="form-grid">${f('nextHop', 'IPv6 next hop (optional)')}${f('exit', 'Exit interface (optional)')}</div>` +
+                  f('local', 'Local IPv6 router address (optional)') +
+                  area(
+                    'connected',
+                    'Connected IPv6 networks',
+                    v.connected,
+                    'One IPv6/CIDR per line. Link-local next hops always require an exit interface.',
+                  ) +
+                  `<div class="form-grid">${f('distance', 'Administrative distance', 'number', '', 'min="1" max="254"')}${f('primaryDistance', 'Primary route distance', 'number', '', 'min="1" max="254"')}</div>` +
+                  checkbox('floating', 'Generate floating backup route', v.floating === 'on')
+                : f(
+                    'address',
+                    'IPv6 address',
+                    'text',
+                    'Compressed, expanded or IPv4-embedded form. No CIDR or zone ID.',
+                  ))
+    );
   if (tab === 'Number Systems')
     return (
       mode([
@@ -229,6 +311,7 @@ export function formFields(tab: Tab, v: Values, rows: Values[]): string {
         'topic',
         'Question topic',
         topics.map((t) => [t, t]),
+        'data-mode',
       ) +
       s(
         'difficulty',
@@ -241,9 +324,11 @@ export function formFields(tab: Tab, v: Values, rows: Values[]): string {
         ],
         'data-mode',
       ) +
-      (v.difficulty === 'Custom'
-        ? `<div class="note">Custom question builder. Choose the topic above; these values supply that topic.</div>${f('customIp', 'IP address')}${f('customPrefix', 'CIDR prefix')}${f('customHosts', 'Required hosts', 'number')}${area('customRows', 'VLSM / VLAN / router requirements', v.customRows, 'One name,hosts per line. Add router links as rows with 2 hosts. Use the IP/CIDR as the base network.')}${f('customNextHop', 'Route next hop')}`
-        : '')
+      (v.difficulty === 'Custom' && v.topic.startsWith('IPv6')
+        ? `<div class="note">Enter values for the selected IPv6 topic. Prefix is needed for prefix questions; next hop is needed for routing.</div>${f('customIp', 'Custom IPv6 address')}${f('customPrefix', 'Custom IPv6 prefix')}${f('customNextHop', 'Custom IPv6 next hop')}${f('customExit', 'Custom exit interface (for link-local next hop)')}`
+        : v.difficulty === 'Custom'
+          ? `<div class="note">Custom question builder. Choose the topic above; these values supply that topic.</div>${f('customIp', 'IP address')}${f('customPrefix', 'CIDR prefix')}${f('customHosts', 'Required hosts', 'number')}${area('customRows', 'VLSM / VLAN / router requirements', v.customRows, 'One name,hosts per line. Add router links as rows with 2 hosts. Use the IP/CIDR as the base network.')}${f('customNextHop', 'Route next hop')}`
+          : '')
     );
   return '';
 }
