@@ -71,7 +71,7 @@ The source checkout does not track generated `dist/`. Release archives include `
 
 ## Explanations and study notes
 
-- **Recommended / Easiest** is the initial method. Relevant alternatives appear for each calculator.
+- The **Methodology** selector lists the relevant explanation names in alphabetical order. **Recommended / Easiest** is selected by default even when another option appears first. Settings provides a separate default methodology preference.
 - The independent detail selector supports **Full Working**, **Standard**, **Short Exam Form**, and **Final Answer Only**.
 - Progressive hint mode reveals steps on demand. Practice answers remain hidden until revealed.
 - Copy answers, working, commands and Markdown tables; export allocation CSV, Markdown notes, a single scenario or the whole workspace as JSON.

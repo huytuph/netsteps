@@ -1,5 +1,5 @@
 import { button, checkbox, esc, field, select, table } from '../components/ui';
-import { methodLabels, methodWhy, resolveMethod } from '../explanations/methods';
+import { methodLabels, methodOptions, methodWhy, resolveMethod } from '../explanations/methods';
 import type { Lesson } from '../explanations/model';
 import { descriptions, formFields } from '../pages/forms';
 import type { AppState, Draft } from './state';
@@ -36,15 +36,17 @@ export function createViews(state: Readonly<AppState>, data: () => Draft) {
         ['light', 'Light'],
         ['dark', 'Dark'],
       ],
-    )}${select('method', 'Default explanation method', p.method, [
-      ['recommended', 'Recommended / Easiest'],
-      ['exam', 'Short Exam Method'],
-    ])}${select('detail', 'Default detail level', p.detail, [
-      ['full', 'Full Working'],
-      ['standard', 'Standard'],
-      ['exam', 'Short Exam Form'],
-      ['final', 'Final Answer Only'],
-    ])}${checkbox('history', 'Keep local calculation history', p.history)}<p class="muted">Changes are saved automatically. Method and detail can be adjusted independently in each result.</p></form></section><section class="panel"><h2>Your local data</h2><p>Preferences, scenarios, history and practice scores are kept in this browser’s localStorage. Export a backup to move them to another browser or device.</p><div class="stack-actions">${button('export-all', 'Download JSON backup')}${button('import', 'Import JSON backup')}${button('clear-history', 'Clear history')}${button('reset-data', 'Reset all local data', 'class="danger"')}</div><div class="note">Imports merge scenarios and history, and apply the imported preferences. The existing browser data stays until you choose to reset it.</div><h3>Offline use</h3><p>Open <code>offline.html</code> from the downloaded build, or serve <code>dist/</code> locally. On localhost, the app caches its files after the first successful visit.</p><p>No backend, external APIs, remote fonts, analytics or account. Clearing browser data removes local saves.</p></section></div>`;
+    )}${select('method', 'Default methodology', p.method, methodOptions(['recommended', 'exam']))}${select(
+      'detail',
+      'Default detail level',
+      p.detail,
+      [
+        ['full', 'Full Working'],
+        ['standard', 'Standard'],
+        ['exam', 'Short Exam Form'],
+        ['final', 'Final Answer Only'],
+      ],
+    )}${checkbox('history', 'Keep local calculation history', p.history)}<p class="muted">Changes are saved automatically. Method and detail can be adjusted independently in each result.</p></form></section><section class="panel"><h2>Your local data</h2><p>Preferences, scenarios, history and practice scores are kept in this browser’s localStorage. Export a backup to move them to another browser or device.</p><div class="stack-actions">${button('export-all', 'Download JSON backup')}${button('import', 'Import JSON backup')}${button('clear-history', 'Clear history')}${button('reset-data', 'Reset all local data', 'class="danger"')}</div><div class="note">Imports merge scenarios and history, and apply the imported preferences. The existing browser data stays until you choose to reset it.</div><h3>Offline use</h3><p>Open <code>offline.html</code> from the downloaded build, or serve <code>dist/</code> locally. On localhost, the app caches its files after the first successful visit.</p><p>No backend, external APIs, remote fonts, analytics or account. Clearing browser data removes local saves.</p></section></div>`;
   }
   function workspacePage() {
     const d = data();
@@ -53,9 +55,9 @@ export function createViews(state: Readonly<AppState>, data: () => Draft) {
   function methodControls(l: Lesson, method: string) {
     return `<div class="explanation-controls">${select(
       'explanation-method',
-      'Explanation method',
+      'Methodology',
       method,
-      Object.keys(l.methods).map((m) => [m, methodLabels[m] || m]),
+      methodOptions(Object.keys(l.methods)),
     )}${select('detail-level', 'Detail level', state.detail, [
       ['full', 'Full Working'],
       ['standard', 'Standard'],

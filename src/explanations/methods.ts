@@ -15,6 +15,14 @@ export const methodLabels: Record<string, string> = {
   commands: 'Command by Command',
   exam: 'Short Exam Method',
 };
+export function methodOptions(methods: readonly string[]): [string, string][] {
+  return methods
+    .map((method): [string, string] => [
+      method,
+      Object.hasOwn(methodLabels, method) ? methodLabels[method] : method,
+    ])
+    .sort(([, a], [, b]) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
+}
 export function methodWhy(lesson: Lesson, method: string): string {
   return (
     (
