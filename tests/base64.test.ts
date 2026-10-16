@@ -38,7 +38,7 @@ describe('standard Base64 (RFC 4648)', () => {
           ((value + i) % 256).toString(16).padStart(2, '0'),
         ).join(' ');
         const encoded = convertBase64(data, 'encode', 'hex');
-        expect(encoded.output).toBe(Buffer.from(encoded.bytes).toString('base64'));
+        expect(encoded.output).toBe(btoa(String.fromCharCode(...encoded.bytes)));
         expect(convertBase64(encoded.output, 'decode', 'hex').output).toBe(data.toUpperCase());
       }
   });
