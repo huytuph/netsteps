@@ -20,6 +20,74 @@ const submit = () =>
 const value = (name: string) => query<HTMLInputElement>(`[name="${name}"]`).value;
 const nav = (tab: string) => click(`nav [data-tab="${tab}"]`);
 
+describe('extended number systems', () => {
+  it('starts blank, supports octal and preserves independent Base64 drafts', () => {
+    nav('Number Systems');
+    expect(value('input')).toBe('');
+    input('from', 'octal', true);
+    input('to', 'hex', true);
+    input('input', '755');
+    submit();
+    expect(query('.final-panel').textContent).toContain('1ED');
+    input('mode', 'base64', true);
+    expect(value('data')).toBe('');
+    submit();
+    expect(query('[role="alert"]').textContent).toContain('Enter data');
+    input('data', '你好 🌐');
+    submit();
+    expect(query('.final-panel').textContent).toContain('5L2g5aW9IPCfjJA=');
+    expect(value('explanation-method')).toBe('recommended');
+    const labels = [...query<HTMLSelectElement>('[name="explanation-method"]').options].map(
+      (option) => option.text,
+    );
+    expect(labels).toEqual(
+      [...labels].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' })),
+    );
+    input('explanation-method', 'indices', true);
+    expect(query('.steps').textContent).toContain('Calculate index');
+    expect(query('.steps mark.working-input')).toBeTruthy();
+    expect(query('.steps em.working-rule')).toBeTruthy();
+    expect(query('.steps strong.working-result u')).toBeTruthy();
+    input('detail-level', 'final', true);
+    expect(document.querySelector('.steps')).toBeNull();
+    expect(value('explanation-method')).toBe('indices');
+    input('mode', 'integer', true);
+    expect(value('input')).toBe('755');
+    expect(value('from')).toBe('octal');
+    input('mode', 'base64', true);
+    expect(value('data')).toBe('你好 🌐');
+  });
+  it('validates Base64, restores saves and copies readable working without HTML tags', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    vi.stubGlobal('isSecureContext', true);
+    nav('Number Systems');
+    input('mode', 'base64', true);
+    input('direction', 'decode', true);
+    input('byteFormat', 'hex', true);
+    input('data', 'Zh==');
+    submit();
+    expect(query('[role="alert"]').textContent).toContain('padding bits');
+    input('data', 'Zg==');
+    submit();
+    expect(query('.final-panel').textContent).toContain('66');
+    input('explanation-method', 'grouping', true);
+    click('[data-action="copy-working"]');
+    await Promise.resolve();
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('discard 4 unused zero bit(s)'));
+    expect(writeText.mock.calls[0][0]).not.toMatch(/<\/?(?:mark|strong|em|u)[ >]/);
+    input('scenario-name', 'Base64 decode');
+    click('[data-action="save-scenario"]');
+    nav('Dashboard');
+    click('[data-kind="saved"]');
+    expect(value('mode')).toBe('base64');
+    expect(value('direction')).toBe('decode');
+    expect(value('byteFormat')).toBe('hex');
+    expect(value('data')).toBe('Zg==');
+    expect(query('.final-panel').textContent).toContain('66');
+  });
+});
+
 beforeEach(() => {
   localStorage.clear();
   document.body.innerHTML = '<div id="app"></div>';

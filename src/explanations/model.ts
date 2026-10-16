@@ -1,6 +1,11 @@
 export interface Step {
   title: string;
   text: string;
+  content?: TextPart[];
+}
+export interface TextPart {
+  text: string;
+  style?: 'input' | 'rule' | 'result' | 'emphasis' | 'note';
 }
 export interface Lesson {
   title: string;

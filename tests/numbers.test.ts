@@ -10,7 +10,7 @@ describe('octet conversions', () => {
   });
   it('roundtrips all 256 octet values in all bases', () => {
     for (let i = 0; i <= 255; i++)
-      for (const base of ['decimal', 'binary', 'hex'] as const) {
+      for (const base of ['decimal', 'binary', 'octal', 'hex'] as const) {
         const r = convert(String(i), 'decimal', base);
         expect(convert(r.output, base, 'decimal').value).toBe(i);
       }
@@ -21,6 +21,8 @@ describe('octet conversions', () => {
     ['256', 'decimal'],
     ['2', 'binary'],
     ['GG', 'hex'],
+    ['8', 'octal'],
+    ['400', 'octal'],
     ['-1', 'decimal'],
     ['1.5', 'decimal'],
     ['', 'decimal'],
@@ -37,6 +39,7 @@ describe('shared number parsing with separate limits', () => {
     ['  0x00fF  ', 'hex', '00FF', 255],
     [' 0B00000101 ', 'binary', '00000101', 5],
     [' 00081 ', 'decimal', '00081', 81],
+    [' 0o0377 ', 'octal', '0377', 255],
   ] as const)(
     'normalizes %s consistently for both converters',
     (input, base, normalized, value) => {
@@ -80,4 +83,26 @@ describe('shared number parsing with separate limits', () => {
       }
     },
   );
+});
+
+describe('octal and all numeric base pairs', () => {
+  it('preserves values through all 16 source/target pairs including maximum precision', () => {
+    const bases = ['binary', 'octal', 'decimal', 'hex'] as const;
+    for (const n of [0n, 1n, 7n, 8n, 255n, 493n, 567n, 999n, (1n << 256n) - 1n])
+      for (const from of bases)
+        for (const to of bases) {
+          const input = convertInteger(String(n), 'decimal', from).output;
+          const converted = convertInteger(input, from, to);
+          expect(converted.value).toBe(n);
+          expect(convertInteger(converted.output, to, 'decimal').output).toBe(String(n));
+        }
+  });
+  it('pads octal octets without changing integer width', () => {
+    expect(convert('1', 'decimal', 'octal').output).toBe('001');
+    expect(convert('255', 'decimal', 'octal').output).toBe('377');
+    expect(convert('1', 'decimal', 'octal', false).output).toBe('1');
+    expect(convertInteger('0o755', 'octal', 'decimal').output).toBe('493');
+    expect(convertInteger('493', 'decimal', 'octal').output).toBe('755');
+    expect(() => convertInteger('8', 'octal', 'decimal')).toThrow();
+  });
 });

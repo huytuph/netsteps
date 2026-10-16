@@ -1,4 +1,5 @@
 import { button, checkbox, esc, field, select, table } from '../components/ui';
+import { renderStepText } from '../components/explanation';
 import { methodLabels, methodOptions, methodWhy, resolveMethod } from '../explanations/methods';
 import type { Lesson } from '../explanations/model';
 import { descriptions, formFields } from '../pages/forms';
@@ -72,7 +73,7 @@ export function createViews(state: Readonly<AppState>, data: () => Draft) {
       steps = steps.length > 4 ? [steps[0], steps[1], steps.at(-2)!, steps.at(-1)!] : steps;
     if (state.detail === 'exam') steps = steps.length > 2 ? [steps[0], steps.at(-1)!] : steps;
     const hidden = practice || state.hintMode ? steps.slice(0, state.hintCount) : steps;
-    return `${methodControls(l, method)}${state.detail !== 'final' ? `<div class="why"><strong>Why this method?</strong><p>${esc(methodWhy(l, method))}</p></div>${!practice ? checkbox('hint-mode', 'Progressive hint mode', state.hintMode) : ''}${practice || state.hintMode ? `<div class="hint-actions">${button('next-step', 'Show next step')}${button('show-working', 'Show full working')}${button('reveal', 'Reveal answer')}</div>` : ''}<ol class="steps">${hidden.map((s) => `<li><strong>${esc(s.title)}</strong><pre>${esc(s.text)}</pre></li>`).join('')}</ol>${hidden.length === 0 ? '<p class="muted">Use Show next step to begin.</p>' : ''}` : ''}`;
+    return `${methodControls(l, method)}${state.detail !== 'final' ? `<div class="why"><strong>Why this method?</strong><p>${esc(methodWhy(l, method))}</p></div>${!practice ? checkbox('hint-mode', 'Progressive hint mode', state.hintMode) : ''}${practice || state.hintMode ? `<div class="hint-actions">${button('next-step', 'Show next step')}${button('show-working', 'Show full working')}${button('reveal', 'Reveal answer')}</div>` : ''}<p class="working-legend"><mark class="working-input">Input</mark> · <em class="working-rule">Rule</em> · <strong class="working-emphasis">Working</strong> · <strong class="working-result"><u>Result</u></strong></p><ol class="steps">${hidden.map((s) => `<li><strong>${esc(s.title)}</strong><pre>${renderStepText(s)}</pre></li>`).join('')}</ol>${hidden.length === 0 ? '<p class="muted">Use Show next step to begin.</p>' : ''}` : ''}`;
   }
   function resultOutput() {
     if (state.error)

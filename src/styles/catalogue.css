@@ -18,6 +18,7 @@
   --accent-soft: #e7f2fb;
   --danger: #b42318;
   --good: #177245;
+  --working-result-bg: #e9f5ec;
   --warn: #a45a00;
   --radius: 10px;
   --gutter: clamp(0.8rem, 2vw, 2rem);
@@ -38,6 +39,7 @@
   --accent-soft: #20384a;
   --danger: #ff8178;
   --good: #65c18c;
+  --working-result-bg: #163629;
   --warn: #f0a64a;
   color-scheme: dark;
 }
@@ -729,7 +731,7 @@ main {
   font-size: 0.7rem;
   font-weight: 700;
 }
-.steps strong {
+.steps > li > strong {
   font-size: 0.9rem;
 }
 .steps pre {
@@ -741,6 +743,39 @@ main {
 }
 .final-panel {
   border-top: 3px solid var(--accent);
+}
+.working-input {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  border-radius: 3px;
+  padding: 0.05em 0.2em;
+  font-weight: 650;
+}
+.working-rule {
+  color: var(--text);
+  font-family: inherit;
+}
+.working-result {
+  color: var(--good);
+  background: var(--working-result-bg);
+  padding: 0.05em 0.2em;
+  border-radius: 3px;
+}
+.working-result u {
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+}
+.working-emphasis,
+.working-number {
+  color: var(--accent-dark);
+  font-weight: 750;
+}
+.working-note {
+  color: var(--muted);
+}
+.working-legend {
+  font-size: 0.78rem;
+  line-height: 1.8;
 }
 .metrics {
   display: grid;

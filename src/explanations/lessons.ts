@@ -8,88 +8,10 @@ import { RouteResult } from '../calculators/routing';
 import { VlsmPlan } from '../calculators/vlsm';
 import { ipv6AddressLesson, ipv6RouteLesson, ipv6SubnetLesson } from './ipv6';
 import type { Lesson, Step } from './model';
+import { integerLesson } from './integer';
 const step = (title: string, text: string): Step => ({ title, text });
 export function numberLesson(r: Conversion): Lesson {
-  const radix = { decimal: 10, binary: 2, hex: 16 };
-  const division: Step[] = [];
-  let n = r.value;
-  const target = r.to === 'decimal' ? radix[r.from] : radix[r.to];
-  do {
-    division.push(
-      step(
-        `Divide ${n} by ${target}`,
-        `${n} ÷ ${target} = ${Math.floor(n / target)}, remainder ${(n % target).toString(target).toUpperCase()}`,
-      ),
-    );
-    n = Math.floor(n / target);
-  } while (n);
-  division.push(
-    step(
-      'Read remainders from bottom to top',
-      r.to === 'decimal'
-        ? `These digits confirm the source ${r.input}; its decimal value is ${r.value}.`
-        : `Pad the octet if needed → ${r.output}.`,
-    ),
-  );
-  const digits = r.input.replace(/^0x/i, '').split('');
-  const place = digits.map((d, i) =>
-    step(
-      `Position ${digits.length - 1 - i}`,
-      `${d} × ${radix[r.from]}^${digits.length - 1 - i} = ${parseInt(d, radix[r.from]) * radix[r.from] ** (digits.length - 1 - i)}`,
-    ),
-  );
-  place.push(step('Add the place values', `Decimal total = ${r.value}. In ${r.to}: ${r.output}.`));
-  const power: Step[] = [];
-  let remaining = r.value;
-  for (let p = 7; p >= 0; p--) {
-    const weight = 2 ** p,
-      bit = remaining >= weight ? 1 : 0;
-    if (bit) remaining -= weight;
-    power.push(
-      step(
-        `2^${p} = ${weight}`,
-        `${bit ? `Use ${weight}; subtract it` : `Skip ${weight}`} → bit ${bit}, remainder ${remaining}.`,
-      ),
-    );
-  }
-  power.push(
-    step(
-      'Read the bits',
-      `${r.value.toString(2).padStart(8, '0')}₂ = ${r.value}₁₀ = ${r.value.toString(16).toUpperCase().padStart(2, '0')}₁₆`,
-    ),
-  );
-  const nibble = step(
-    'Group four binary bits per hex digit',
-    r.value
-      .toString(2)
-      .padStart(8, '0')
-      .match(/.{4}/g)!
-      .map((bits) => `${bits} = ${parseInt(bits, 2).toString(16).toUpperCase()}`)
-      .join('\n'),
-  );
-  return {
-    title: 'Octet conversion',
-    summary: r.output,
-    metrics: [
-      ['Decimal', String(r.value)],
-      ['Binary', r.value.toString(2).padStart(8, '0')],
-      ['Hexadecimal', r.value.toString(16).toUpperCase().padStart(2, '0')],
-    ],
-    why: 'Use place values when reading a number; use repeated division when writing a new base. Four-bit groups make binary ↔ hex quick.',
-    methods: {
-      recommended: r.from === 'decimal' ? division : place,
-      division,
-      place,
-      powers: power,
-      binary: [nibble, step('Final conversion', r.output)],
-      exam: [
-        step(
-          'Convert via decimal',
-          `${r.input} (${r.from}) = ${r.value} decimal = ${r.output} (${r.to}).`,
-        ),
-      ],
-    },
-  };
+  return integerLesson({ ...r, value: BigInt(r.value) }, true);
 }
 export function ipv4Lesson(decimal: string, binary: string, octets: Conversion[]): Lesson {
   const recommended = octets.flatMap((r, i) => [

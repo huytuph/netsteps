@@ -87,6 +87,18 @@
   .steps li {
     break-inside: avoid;
   }
+  .working-input,
+  .working-result,
+  .working-emphasis,
+  .working-number,
+  .working-note,
+  .working-rule {
+    color: #000 !important;
+    background: transparent !important;
+  }
+  .working-input {
+    border: 1px solid #999;
+  }
   .steps pre,
   .command {
     background: #fff !important;

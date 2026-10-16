@@ -1,5 +1,6 @@
 import { Tab, Values } from '../app/storage';
 import { topics } from '../calculators/practice';
+import { baseNames, numberBases } from '../calculators/numbers';
 import { formHelpers, rowControls } from '../components/rows';
 import { area, button, checkbox, esc, field, select } from '../components/ui';
 import { featureDefaults, featureFor, featureRow } from './features';
@@ -14,6 +15,9 @@ export const baseValues: Partial<Record<Tab, Values>> = {
     pad: 'on',
     ipv4: '',
     binaryIpv4: '',
+    direction: 'encode',
+    byteFormat: 'text',
+    data: '',
   },
   Subnetting: {
     mode: 'subnet',
@@ -200,22 +204,36 @@ export function formFields(tab: Tab, v: Values, rows: Values[]): string {
       mode([
         ['octet', 'Octet conversion'],
         ['integer', 'Integer conversion (includes 0–999)'],
+        ['base64', 'Base64 encode / decode'],
         ['ipv4', 'IPv4 → Binary'],
         ['binary-ip', 'Binary IPv4 → Decimal'],
       ]) +
-      (v.mode === 'octet' || v.mode === 'integer'
-        ? `<div class="form-grid">${s('from', 'From', [
-            ['decimal', 'Decimal'],
-            ['binary', 'Binary'],
-            ['hex', 'Hexadecimal'],
-          ])}${s('to', 'To', [
-            ['binary', 'Binary'],
-            ['decimal', 'Decimal'],
-            ['hex', 'Hexadecimal'],
-          ])}</div>${f('input', v.mode === 'integer' ? 'Integer value' : 'Octet value', 'text', v.mode === 'integer' ? 'Enter the number directly. Nonnegative integers up to 256 significant bits; no ID field.' : 'Decimal equivalent must be 0–255.')} ${v.mode === 'octet' ? checkbox('pad', 'Pad binary to 8 bits / hex to 2 digits', v.pad === 'on') : ''}`
-        : v.mode === 'ipv4'
-          ? f('ipv4', 'IPv4 address')
-          : f('binaryIpv4', 'Binary IPv4', 'text', 'Four 8-bit octets separated by dots.'))
+      (v.mode === 'base64'
+        ? `<p class="note">Base64 encodes bytes as text using A–Z, a–z, 0–9, + and /. It is not encryption. Text uses UTF-8.</p><div class="form-grid">${s(
+            'direction',
+            'Operation',
+            [
+              ['encode', 'Encode to Base64'],
+              ['decode', 'Decode from Base64'],
+            ],
+          )}${s('byteFormat', 'Byte data format', [
+            ['text', 'Text (UTF-8)'],
+            ['hex', 'Hexadecimal bytes'],
+            ['binary', 'Binary bytes'],
+          ])}</div>${area('data', 'Data to encode / decode', v.data || '', 'Encode: enter text, hex byte pairs or 8-bit binary bytes. Decode: enter standard Base64 with required = padding and no whitespace; the format selects the output. Maximum 192 bytes.')}`
+        : v.mode === 'octet' || v.mode === 'integer'
+          ? `<div class="form-grid">${s(
+              'from',
+              'From',
+              numberBases.map((base): [string, string] => [base, baseNames[base]]),
+            )}${s(
+              'to',
+              'To',
+              numberBases.map((base): [string, string] => [base, baseNames[base]]),
+            )}</div>${f('input', v.mode === 'integer' ? 'Integer value' : 'Octet value', 'text', v.mode === 'integer' ? 'Nonnegative integers up to 256 significant bits. Optional prefixes: 0b, 0o, 0x. Enter actual values directly.' : 'Decimal equivalent must be 0–255.')} ${v.mode === 'octet' ? checkbox('pad', 'Pad binary to 8 bits / octal to 3 digits / hex to 2 digits', v.pad === 'on') : ''}`
+          : v.mode === 'ipv4'
+            ? f('ipv4', 'IPv4 address')
+            : f('binaryIpv4', 'Binary IPv4', 'text', 'Four 8-bit octets separated by dots.'))
     );
   if (tab === 'Subnetting')
     return (

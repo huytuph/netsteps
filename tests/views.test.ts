@@ -24,7 +24,7 @@ describe('read-only rendering', () => {
       const before = structuredClone(state);
       const views = createViews(Object.freeze(state), () => draft);
       expect(views.workspacePage()).toContain('value="recommended" selected');
-      expect(views.resultOutput()).toContain('Result: 237');
+      expect(views.resultOutput()).toContain('237 (base 16)');
       expect(views.outputText()).toContain('Manual working (Recommended / Easiest)');
       expect(state).toEqual(before);
     },

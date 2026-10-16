@@ -9,7 +9,9 @@ import {
   parseBinaryIPv6,
   planIPv6,
 } from '../calculators/ipv6';
-import { convert, convertInteger, convertIPv4 } from '../calculators/numbers';
+import { convert, convertInteger, convertIPv4, numberBases } from '../calculators/numbers';
+import { convertBase64 } from '../calculators/base64';
+import { base64Lesson } from '../explanations/base64';
 import { staticRoute } from '../calculators/routing';
 import { dhcpPlan, hsrpPlan, natPlan, vlanPlan } from '../calculators/services';
 import { planVlsm, Requirement } from '../calculators/vlsm';
@@ -77,20 +79,31 @@ export function calculate(tab: Tab, v: Values, rows: Values[]): Lesson {
     );
   }
   if (tab === 'Number Systems') {
+    if (v.mode === 'base64') {
+      if (!v.data?.length || (v.byteFormat !== 'text' && !v.data.trim()))
+        throw new Error('Enter data to encode or decode.');
+      return base64Lesson(
+        convertBase64(
+          v.data,
+          choice(v.direction, ['encode', 'decode'], 'Base64 operation'),
+          choice(v.byteFormat, ['text', 'hex', 'binary'], 'byte data format'),
+        ),
+      );
+    }
     if (v.mode === 'integer')
       return integerLesson(
         convertInteger(
           v.input,
-          choice(v.from, ['decimal', 'binary', 'hex'], 'source base'),
-          choice(v.to, ['decimal', 'binary', 'hex'], 'target base'),
+          choice(v.from, numberBases, 'source base'),
+          choice(v.to, numberBases, 'target base'),
         ),
       );
     if (v.mode === 'octet')
       return numberLesson(
         convert(
           v.input,
-          choice(v.from, ['decimal', 'binary', 'hex'], 'source base'),
-          choice(v.to, ['decimal', 'binary', 'hex'], 'target base'),
+          choice(v.from, numberBases, 'source base'),
+          choice(v.to, numberBases, 'target base'),
           v.pad === 'on',
         ),
       );
