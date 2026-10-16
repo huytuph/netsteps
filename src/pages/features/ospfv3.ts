@@ -12,7 +12,7 @@ export const feature = {
 
   row: { router: '', routerId: '', iface: '', address: '', area: '', passive: '' },
   render(v: Values, rows: Values[]): string {
-    const { f, rf, controls } = formHelpers(v, rows);
+    const { f, rf, rf4, controls } = formHelpers(v, rows);
     return (
       f(
         'ospfProcess',
@@ -20,7 +20,7 @@ export const feature = {
         'number',
         '1–65535. Classic IOS / Packet Tracer syntax.',
       ) +
-      `<div class="row-list">${rows.map((r, i) => `<fieldset data-row="${i}"><legend>OSPF interface ${i + 1}</legend><div class="form-grid">${rf(i, 'router', 'Router name')}${rf(i, 'routerId', 'OSPF router ID', 'text', 'A unique 32-bit dotted ID per router; repeat it on this router’s rows.')}</div>${rf(i, 'iface', 'Interface')}${rf(i, 'address', 'IPv6 interface address / prefix')}${rf(i, 'area', 'OSPF area', 'text', 'Decimal or dotted area ID. Enter 0 explicitly for the backbone.')}${checkbox(`r-${i}-passive`, 'Passive LAN interface', r.passive === 'on')}${controls(i)}</fieldset>`).join('')}</div>${button('add-row', '+ Add OSPF interface')}`
+      `<div class="row-list">${rows.map((r, i) => `<fieldset data-row="${i}"><legend>OSPF interface ${i + 1}</legend><div class="form-grid">${rf(i, 'router', 'Router name')}${rf4(i, 'routerId', 'OSPF router ID', { help: 'A unique 32-bit dotted ID per router; repeat it on this router’s rows.' })}</div>${rf(i, 'iface', 'Interface')}${rf(i, 'address', 'IPv6 interface address / prefix')}${rf(i, 'area', 'OSPF area', 'text', 'Decimal or dotted area ID. Enter 0 explicitly for the backbone.')}${checkbox(`r-${i}-passive`, 'Passive LAN interface', r.passive === 'on')}${controls(i)}</fieldset>`).join('')}</div>${button('add-row', '+ Add OSPF interface')}`
     );
   },
   calculate(v: Values, rows: Values[]): Lesson {

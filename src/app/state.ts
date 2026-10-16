@@ -1,6 +1,7 @@
 import type { Question } from '../calculators/practice';
 import type { Lesson } from '../explanations/model';
 import type { Preferences, Tab, Values, Workspace } from './storage';
+import type { IPv4Layout } from '../components/ipv4-input';
 
 export interface Draft {
   values: Values;
@@ -25,6 +26,7 @@ export interface AppState {
   practiceAnswers: Values;
   scenarioName: string;
   stale: boolean;
+  ipv4Layout: IPv4Layout;
 }
 
 export function createAppState(workspace: Workspace, notice = ''): AppState {
@@ -47,6 +49,7 @@ export function createAppState(workspace: Workspace, notice = ''): AppState {
     practiceAnswers: {},
     scenarioName: '',
     stale: false,
+    ipv4Layout: 'full',
   };
 }
 

@@ -3,6 +3,7 @@ import { topics } from '../calculators/practice';
 import { baseNames, numberBases } from '../calculators/numbers';
 import { formHelpers, rowControls } from '../components/rows';
 import { area, button, checkbox, esc, field, select } from '../components/ui';
+import { ipv4Field } from '../components/ipv4-input';
 import { featureDefaults, featureFor, featureRow } from './features';
 export { descriptions } from '../app/tools';
 export const baseValues: Partial<Record<Tab, Values>> = {
@@ -131,7 +132,7 @@ export function formFields(
   rows: Values[],
   allowedModes?: readonly string[],
 ): string {
-  const { f } = formHelpers(v, rows);
+  const { f, f4 } = formHelpers(v, rows);
   const s = (key: string, label: string, options: [string, string][], extra = '') =>
     select(key, label, v[key] || '', options, extra);
   const mode = (options: [string, string][]) => {
@@ -242,8 +243,8 @@ export function formFields(
               numberBases.map((base): [string, string] => [base, baseNames[base]]),
             )}</div>${f('input', v.mode === 'integer' ? 'Integer value' : 'Octet value', 'text', v.mode === 'integer' ? 'Nonnegative integers up to 256 significant bits. Optional prefixes: 0b, 0o, 0x. Enter actual values directly.' : 'Decimal equivalent must be 0–255.')} ${v.mode === 'octet' ? checkbox('pad', 'Pad binary to 8 bits / octal to 3 digits / hex to 2 digits', v.pad === 'on') : ''}`
           : v.mode === 'ipv4'
-            ? f('ipv4', 'IPv4 address')
-            : f('binaryIpv4', 'Binary IPv4', 'text', 'Four 8-bit octets separated by dots.'))
+            ? f4('ipv4', 'IPv4 address')
+            : f4('binaryIpv4', 'Binary IPv4', { binary: true }))
     );
   if (tab === 'Subnetting')
     return (
@@ -266,7 +267,7 @@ export function formFields(
                 'text',
                 'For example /27 or 255.255.255.224.',
               )
-            : f('ip', 'IPv4 address') +
+            : f4('ip', 'IPv4 address') +
               f(
                 'prefix',
                 'CIDR prefix or subnet mask',
@@ -276,11 +277,14 @@ export function formFields(
     );
   if (tab === 'VLSM')
     return (
-      f('base', 'Base network', 'text', 'Use an aligned network/CIDR.') +
+      f4('base', 'Base network', {
+        cidr: true,
+        help: 'Use an aligned network with an explicit CIDR prefix.',
+      }) +
       `<div class="form-grid">${s('order', 'Allocation order', [
         ['auto', 'Largest first (recommended)'],
         ['manual', 'Manual row order'],
-      ])}${f('reserve', 'Reserve %', 'number', 'Applied to each row.', 'min="0" step="0.1"')}</div><div class="row-list">${rows.map((r, i) => `<fieldset data-row="${i}"><legend>Network ${i + 1}</legend><div class="form-grid">${field(`r-${i}-name`, 'Name', r.name)}${field(`r-${i}-hosts`, 'Required hosts', r.hosts, 'number', '', 'min="1"')}</div>${select(`r-${i}-mode`, 'Address mode', r.mode, modes)}${field(`r-${i}-locked`, 'Locked subnet (optional)', r.locked || '', 'text', 'Leave empty for automatic allocation.')}${rowControls(i, rows.length)}</fieldset>`).join('')}</div>${button('add-row', '+ Add network')}`
+      ])}${f('reserve', 'Reserve %', 'number', 'Applied to each row.', 'min="0" step="0.1"')}</div><div class="row-list">${rows.map((r, i) => `<fieldset data-row="${i}"><legend>Network ${i + 1}</legend><div class="form-grid">${field(`r-${i}-name`, 'Name', r.name)}${field(`r-${i}-hosts`, 'Required hosts', r.hosts, 'number', '', 'min="1"')}</div>${select(`r-${i}-mode`, 'Address mode', r.mode, modes)}${ipv4Field(`r-${i}-locked`, 'Locked subnet (optional)', r.locked || '', { cidr: true, help: 'Leave empty for automatic allocation.' })}${rowControls(i, rows.length)}</fieldset>`).join('')}</div>${button('add-row', '+ Add network')}`
     );
   if (tab === 'Static Routing')
     return (
@@ -289,16 +293,20 @@ export function formFields(
         ['transit', 'Router transit links'],
       ]) +
       (v.mode === 'transit'
-        ? f('base', 'Transit address block') +
+        ? f4('base', 'Transit address block', { cidr: true }) +
           f('links', 'Number of links', 'number', '', 'min="1" max="256"') +
           s('linkMode', 'Link prefix', [
             ['lan', '/30 traditional'],
             ['p2p', '/31 point-to-point'],
           ])
-        : f('destination', 'Destination network', 'text', 'Use 0.0.0.0/0 for a default route.') +
+        : f4('destination', 'Destination network', {
+            cidr: true,
+            help: 'Use 0.0.0.0 with prefix 0 for a default route.',
+          }) +
           button('default-route', 'Use default route') +
-          `<div class="form-grid">${f('nextHop', 'Next hop (optional)')}${f('exit', 'Exit interface (optional)')}</div>` +
-          f('local', 'Local router IP (optional)') +
+          f4('nextHop', 'Next hop (optional)') +
+          f('exit', 'Exit interface (optional)') +
+          f4('local', 'Local router IP (optional)') +
           area(
             'connected',
             'Connected networks',
@@ -315,13 +323,15 @@ export function formFields(
         ['hsrp', 'HSRP address planner'],
       ]) +
       (v.mode === 'hsrp'
-        ? f('network', 'HSRP subnet') +
+        ? f4('network', 'HSRP subnet', { cidr: true }) +
           `<div class="form-grid">${f('vlan', 'VLAN ID', 'number')}${f('group', 'HSRP v1 group', 'number')}</div>` +
-          f('vip', 'Virtual gateway', 'text', 'Blank uses the first usable address.') +
-          `<div class="form-grid">${f('primary', 'Primary SVI IP (optional)')}${f('secondary', 'Secondary SVI IP (optional)')}</div><div class="form-grid">${f('priority1', 'Primary priority', 'number')}${f('priority2', 'Secondary priority', 'number')}</div>`
-        : f('base', 'Base for host-based allocation') +
+          f4('vip', 'Virtual gateway', { help: 'Blank uses the first usable address.' }) +
+          f4('primary', 'Primary SVI IP (optional)') +
+          f4('secondary', 'Secondary SVI IP (optional)') +
+          `<div class="form-grid">${f('priority1', 'Primary priority', 'number')}${f('priority2', 'Secondary priority', 'number')}</div>`
+        : f4('base', 'Base for host-based allocation', { cidr: true }) +
           button('allocate-vlans', 'Allocate subnets from host counts') +
-          `<div class="row-list">${rows.map((r, i) => `<fieldset data-row="${i}"><legend>VLAN ${esc(r.id)}</legend><div class="form-grid">${field(`r-${i}-id`, 'VLAN ID', r.id, 'number')}${field(`r-${i}-name`, 'Name', r.name)}</div><div class="form-grid">${field(`r-${i}-hosts`, 'Required hosts', r.hosts, 'number')}${field(`r-${i}-voice`, 'Voice VLAN (0 = none)', r.voice, 'number')}</div>${field(`r-${i}-network`, 'Assigned subnet', r.network)}${field(`r-${i}-gateway`, 'Gateway (optional)', r.gateway, 'text', 'Blank uses the first usable address.')}<div class="form-grid">${field(`r-${i}-ports`, 'Access-port range', r.ports)}${field(`r-${i}-trunk`, 'Trunk interface', r.trunk)}</div>${rowControls(i, rows.length)}</fieldset>`).join('')}</div>${button('add-row', '+ Add VLAN')}`)
+          `<div class="row-list">${rows.map((r, i) => `<fieldset data-row="${i}"><legend>VLAN ${esc(r.id)}</legend><div class="form-grid">${field(`r-${i}-id`, 'VLAN ID', r.id, 'number')}${field(`r-${i}-name`, 'Name', r.name)}</div><div class="form-grid">${field(`r-${i}-hosts`, 'Required hosts', r.hosts, 'number')}${field(`r-${i}-voice`, 'Voice VLAN (0 = none)', r.voice, 'number')}</div>${ipv4Field(`r-${i}-network`, 'Assigned subnet', r.network, { cidr: true })}${ipv4Field(`r-${i}-gateway`, 'Gateway (optional)', r.gateway, { help: 'Blank uses the first usable address.' })}<div class="form-grid">${field(`r-${i}-ports`, 'Access-port range', r.ports)}${field(`r-${i}-trunk`, 'Trunk interface', r.trunk)}</div>${rowControls(i, rows.length)}</fieldset>`).join('')}</div>${button('add-row', '+ Add VLAN')}`)
     );
   if (tab === 'DHCP/NAT')
     return (
@@ -333,11 +343,12 @@ export function formFields(
       (v.mode === 'dynamic'
         ? advanced!
         : v.mode === 'nat'
-          ? f('insideNetwork', 'Inside network') +
+          ? f4('insideNetwork', 'Inside network', { cidr: true }) +
             `<div class="form-grid">${f('inside', 'Inside interface')}${f('outside', 'WAN / outside interface')}</div>` +
             f('acl', 'Standard ACL number', 'number', '1–99.')
-          : f('network', 'Pool network') +
-            `<div class="form-grid">${f('pool', 'Pool name')}${f('gateway', 'Default gateway')}</div>` +
+          : f4('network', 'Pool network', { cidr: true }) +
+            f('pool', 'Pool name') +
+            f4('gateway', 'Default gateway') +
             area(
               'excluded',
               'Excluded addresses / ranges',
@@ -346,7 +357,7 @@ export function formFields(
             ) +
             f('dns', 'DNS servers (optional)', 'text', 'Comma or space separated.') +
             `<div class="form-grid">${f('domain', 'Domain (optional)')}${f('lease', 'Lease days', 'number', '0 = infinite.', 'min="0" max="365"')}</div>` +
-            f('tftp', 'TFTP / Option 150 IP (optional)'))
+            f4('tftp', 'TFTP / Option 150 IP (optional)'))
     );
   if (tab === 'Practice')
     return (
@@ -370,7 +381,7 @@ export function formFields(
       (v.difficulty === 'Custom' && v.topic.startsWith('IPv6')
         ? `<div class="note">Enter values for the selected IPv6 topic. Prefix is needed for prefix questions; next hop is needed for routing.</div>${f('customIp', 'Custom IPv6 address')}${f('customPrefix', 'Custom IPv6 prefix')}${f('customNextHop', 'Custom IPv6 next hop')}${f('customExit', 'Custom exit interface (for link-local next hop)')}`
         : v.difficulty === 'Custom'
-          ? `<div class="note">Custom question builder. Choose the topic above; these values supply that topic.</div>${f('customIp', 'IP address')}${f('customPrefix', 'CIDR prefix')}${f('customHosts', 'Required hosts', 'number')}${area('customRows', 'VLSM / VLAN / router requirements', v.customRows, 'One name,hosts per line. Add router links as rows with 2 hosts. Use the IP/CIDR as the base network.')}${f('customNextHop', 'Route next hop')}`
+          ? `<div class="note">Custom question builder. Choose the topic above; these values supply that topic.</div>${f4('customIp', 'IP address')}${f('customPrefix', 'CIDR prefix')}${f('customHosts', 'Required hosts', 'number')}${area('customRows', 'VLSM / VLAN / router requirements', v.customRows, 'One name,hosts per line. Add router links as rows with 2 hosts. Use the IP/CIDR as the base network.')}${f4('customNextHop', 'Route next hop')}`
           : '')
     );
   return '';

@@ -1,6 +1,7 @@
 import { checkAnswer, makeQuestion, type Topic } from '../calculators/practice';
 import { renderShell } from '../components/shell';
 import { esc, readRows, readValues } from '../components/ui';
+import { captureIPv4Inputs, initialiseIPv4Inputs, syncIPv4Input } from '../components/ipv4-input';
 import { questionLesson } from '../explanations/lessons';
 import { resolveMethod } from '../explanations/methods';
 import { calculate } from '../pages/calculate';
@@ -41,6 +42,7 @@ export function startApp(root: HTMLDivElement) {
     resetNavigation: () => {
       lastTools.clear();
       lastModes.clear();
+      state.ipv4Layout = 'full';
     },
     run,
     outputText,
@@ -81,6 +83,7 @@ export function startApp(root: HTMLDivElement) {
   theme();
   function capture() {
     const form = root.querySelector<HTMLFormElement>('#calculator');
+    if (form) captureIPv4Inputs(form);
     if (form)
       drafts.capture(
         state.tab,
@@ -139,6 +142,7 @@ export function startApp(root: HTMLDivElement) {
             ? settings()
             : workspacePage(),
     });
+    initialiseIPv4Inputs(root, state.ipv4Layout);
     updateOffline();
   }
   function prepareResult() {
@@ -271,6 +275,7 @@ export function startApp(root: HTMLDivElement) {
       input instanceof HTMLSelectElement
     ))
       return;
+    if (input instanceof HTMLInputElement) syncIPv4Input(input);
     if (input.closest('#calculator')) {
       state.stale = !!state.lesson;
       root.querySelector('#stale')?.classList.remove('hidden');
@@ -281,7 +286,12 @@ export function startApp(root: HTMLDivElement) {
   function onChange(event: Event) {
     const input = event.target;
     if (!(input instanceof HTMLInputElement || input instanceof HTMLSelectElement)) return;
-    if (input.matches('[data-mode]')) {
+    if (input instanceof HTMLInputElement) syncIPv4Input(input, true);
+    if (input.name === 'ipv4-layout' && input instanceof HTMLSelectElement) {
+      capture();
+      state.ipv4Layout = input.value === 'octets' ? 'octets' : 'full';
+      initialiseIPv4Inputs(root, state.ipv4Layout);
+    } else if (input.matches('[data-mode]')) {
       capture();
       if (input.name === 'mode') drafts.switchMode(state.tab, input.value);
       resetResult(state);

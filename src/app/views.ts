@@ -50,7 +50,14 @@ export function createViews(state: Readonly<AppState>, data: () => Draft) {
   }
   function workspacePage() {
     const d = data();
-    return `<div class="workspace-grid"><section class="panel input-panel"><div class="panel-heading"><span class="step-badge">01</span><div><h2>Your inputs</h2><p>${state.tab === 'Practice' ? 'Choose a topic and difficulty.' : 'Enter actual network values.'}</p></div></div><form id="calculator">${formFields(state.tab, d.values, d.rows, toolFor(state.tab, d.values.mode).modes)}<div class="form-actions"><button type="submit" class="primary">${state.tab === 'Practice' ? 'Generate question' : 'Calculate & explain'} <span>→</span></button>${button('reset-form', 'Reset inputs')}</div></form><div class="privacy-note">◇ Calculated on your device.</div></section><section id="result" class="result-panel" aria-live="polite">${state.tab === 'Practice' ? practiceOutput() : resultOutput()}</section></div>`;
+    const fields = formFields(state.tab, d.values, d.rows, toolFor(state.tab, d.values.mode).modes);
+    const layoutControl = fields.includes('class="ipv4-field"')
+      ? select('ipv4-layout', 'IPv4 input style', state.ipv4Layout, [
+          ['full', 'Full address'],
+          ['octets', 'Separate octets'],
+        ])
+      : '';
+    return `<div class="workspace-grid"><section class="panel input-panel"><div class="panel-heading"><span class="step-badge">01</span><div><h2>Your inputs</h2><p>${state.tab === 'Practice' ? 'Choose a topic and difficulty.' : 'Enter actual network values.'}</p></div></div>${layoutControl ? `<div class="ipv4-style-control">${layoutControl}</div>` : ''}<form id="calculator">${fields}<div class="form-actions"><button type="submit" class="primary">${state.tab === 'Practice' ? 'Generate question' : 'Calculate & explain'} <span>→</span></button>${button('reset-form', 'Reset inputs')}</div></form><div class="privacy-note">◇ Calculated on your device.</div></section><section id="result" class="result-panel" aria-live="polite">${state.tab === 'Practice' ? practiceOutput() : resultOutput()}</section></div>`;
   }
   function methodControls(l: Lesson, method: string) {
     return `<div class="explanation-controls">${select(

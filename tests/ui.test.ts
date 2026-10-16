@@ -26,6 +26,141 @@ function nav(tab: Tab, mode?: string) {
     click(`[data-tool="${tool.id}"]`);
   if (mode && value('mode') !== mode) input('mode', mode, true);
 }
+function addressControl(name: string, part: number | 'address' | 'prefix') {
+  const field = query<HTMLInputElement>(`[name="${name}"]`).closest('[data-ipv4-field]')!;
+  const selector = typeof part === 'number' ? `[data-ipv4-part="${part}"]` : `[data-ipv4-${part}]`;
+  return field.querySelector<HTMLInputElement>(selector)!;
+}
+function addressInput(name: string, part: number | 'address' | 'prefix', value: string) {
+  const control = addressControl(name, part);
+  control.value = value;
+  control.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+describe('IPv4 input layouts', () => {
+  it('starts blank and calculates from separate octets while retaining the result across layout changes', async () => {
+    const print = vi.spyOn(window, 'print').mockImplementation(() => {});
+    nav('Subnetting');
+    expect(value('ipv4-layout')).toBe('full');
+    input('ipv4-layout', 'octets', true);
+    for (let i = 0; i < 4; i++) expect(addressControl('ip', i).value).toBe('');
+    ['192', '0', '2', '42'].forEach((part, i) => addressInput('ip', i, part));
+    input('prefix', '27');
+    submit();
+    expect(query('.final-panel').textContent).toContain('192.0.2.32');
+    input('scenario-name', 'Octet lab');
+    input('ipv4-layout', 'full', true);
+    expect(addressControl('ip', 'address').value).toBe('192.0.2.42');
+    expect(value('scenario-name')).toBe('Octet lab');
+    expect(query('#stale').classList.contains('hidden')).toBe(true);
+    click('[data-action="print"]');
+    await Promise.resolve();
+    expect(print).toHaveBeenCalledOnce();
+    click('[data-action="save-scenario"]');
+    const saved = JSON.parse(localStorage.getItem('network-study-toolkit-v1')!).saved[0];
+    expect(saved.values.ip).toBe('192.0.2.42');
+    expect(saved.values).not.toHaveProperty('ipv4-layout');
+    expect(Object.keys(saved.values)).not.toContain('');
+  });
+  it('preserves partial and invalid input instead of truncating it when toggled', () => {
+    nav('Subnetting');
+    for (const text of ['192', '192..2.', '1.2.3.4.5', '...']) {
+      addressInput('ip', 'address', text);
+      input('ipv4-layout', 'octets', true);
+      input('ipv4-layout', 'full', true);
+      expect(addressControl('ip', 'address').value).toBe(text);
+      expect(value('ip')).toBe(text);
+    }
+    input('ipv4-layout', 'octets', true);
+    addressInput('ip', 0, '256');
+    expect(addressControl('ip', 0).getAttribute('aria-invalid')).toBe('true');
+  });
+  it('keeps a network prefix separate and supports the explicit default-route action', () => {
+    nav('Static Routing');
+    input('ipv4-layout', 'octets', true);
+    ['203', '0', '113', '0'].forEach((part, i) => addressInput('destination', i, part));
+    addressInput('destination', 'prefix', '24');
+    ['192', '0', '2', '2'].forEach((part, i) => addressInput('nextHop', i, part));
+    input('distance', '1');
+    input('connected', '192.0.2.0/30');
+    submit();
+    expect(query('.final-panel').textContent).toContain(
+      'ip route 203.0.113.0 255.255.255.0 192.0.2.2',
+    );
+    click('[data-action="default-route"]');
+    expect(value('destination')).toBe('0.0.0.0/0');
+    expect(addressControl('destination', 'prefix').value).toBe('0');
+    for (let i = 0; i < 4; i++) expect(addressControl('destination', i).value).toBe('0');
+  });
+  it('converts four binary octets and rejects an invalid octet', () => {
+    nav('Number Systems');
+    input('mode', 'binary-ip', true);
+    input('ipv4-layout', 'octets', true);
+    ['00001010', '00000000', '00000010', '00000001'].forEach((part, i) =>
+      addressInput('binaryIpv4', i, part),
+    );
+    submit();
+    expect(query('.final-panel').textContent).toContain('10.0.2.1');
+    addressInput('binaryIpv4', 3, '00000002');
+    submit();
+    expect(query('[role="alert"]').textContent).toContain('8-bit octets');
+  });
+  it('retains octets and CIDR prefixes when planner rows move and the tool changes', () => {
+    nav('VLSM');
+    input('ipv4-layout', 'octets', true);
+    input('base', '10.0.0.0/24');
+    input('r-0-name', 'A');
+    addressInput('r-0-locked', 0, '10');
+    addressInput('r-0-locked', 1, '0');
+    addressInput('r-0-locked', 2, '0');
+    addressInput('r-0-locked', 3, '0');
+    addressInput('r-0-locked', 'prefix', '27');
+    click('[data-action="add-row"]');
+    input('r-1-name', 'B');
+    click('[data-action="up"][data-index="1"]');
+    expect(value('r-1-locked')).toBe('10.0.0.0/27');
+    expect(addressControl('r-1-locked', 'prefix').value).toBe('27');
+    nav('Static Routing');
+    expect(value('ipv4-layout')).toBe('octets');
+    nav('VLSM');
+    expect(addressControl('r-1-locked', 0).value).toBe('10');
+    expect(addressControl('r-1-locked', 'prefix').value).toBe('27');
+  });
+  it('restores legacy CIDR values into the two layouts without changing the backup schema', () => {
+    stop();
+    const workspace = defaults();
+    workspace.saved = [
+      entry(
+        'VLSM',
+        { base: '10.0.0.0/24', order: 'auto', reserve: '' },
+        [{ name: 'LAN', hosts: '22', mode: 'lan', locked: '10.0.0.0/27' }],
+        'Legacy allocation',
+        '',
+      ),
+    ];
+    localStorage.setItem('network-study-toolkit-v1', JSON.stringify(workspace));
+    stop = startApp(query<HTMLDivElement>('#app'));
+    click('[data-kind="saved"]');
+    expect(addressControl('base', 'address').value).toBe('10.0.0.0');
+    expect(addressControl('base', 'prefix').value).toBe('24');
+    input('ipv4-layout', 'octets', true);
+    expect(addressControl('r-0-locked', 'prefix').value).toBe('27');
+    expect(query('.final-panel').textContent).toContain('224 addresses remaining');
+  });
+  it('shows layout controls only where a suitable IPv4 input is present', () => {
+    nav('IPv6', 'address');
+    expect(document.querySelector('[name="ipv4-layout"]')).toBeNull();
+    nav('DHCP/NAT', 'dynamic');
+    expect(value('ipv4-layout')).toBe('full');
+    expect(document.querySelector('textarea[name="insideNetwork"]')).not.toBeNull();
+    expect(addressControl('poolStart', 'address')).toBeTruthy();
+    nav('Tunnelling', 'gre4');
+    expect(addressControl('aLanAddress', 'prefix')).toBeTruthy();
+    input('mode', 'gre6', true);
+    expect(query<HTMLInputElement>('[name="aLanAddress"]').closest('[data-ipv4-field]')).toBeNull();
+    expect(addressControl('aWanAddress', 'prefix')).toBeTruthy();
+  });
+});
 
 describe('extended number systems', () => {
   it('starts blank, supports octal and preserves independent Base64 drafts', () => {

@@ -29,7 +29,7 @@ export const feature = {
   },
 
   render(v: Values, rows: Values[]): string {
-    const { f, rf, controls } = formHelpers(v, rows);
+    const { f, f4 } = formHelpers(v, rows);
     return (
       select(
         'mode',
@@ -46,7 +46,7 @@ export const feature = {
       ['a', 'b']
         .map(
           (key, i) =>
-            `<fieldset><legend>Router ${i === 0 ? 'A' : 'B'}</legend>${f(key + 'Name', `Router ${i === 0 ? 'A' : 'B'} name`)}${f(key + 'WanInterface', 'Physical WAN interface')}${f(key + 'WanAddress', 'WAN IPv4 address / CIDR')}${f(key + 'NextHop', 'Underlay IPv4 next hop (optional)', 'text', 'Needed if the remote outer endpoint is not directly connected and no route already exists.')}${f(key + 'TunnelAddress', v.mode === 'gre4' ? 'Tunnel IPv4 address / CIDR' : 'Tunnel IPv6 address / prefix')}${f(key + 'LanInterface', 'LAN interface')}${f(key + 'LanAddress', v.mode === 'gre4' ? 'LAN IPv4 address / CIDR' : 'LAN IPv6 address / prefix')}</fieldset>`,
+            `<fieldset><legend>Router ${i === 0 ? 'A' : 'B'}</legend>${f(key + 'Name', `Router ${i === 0 ? 'A' : 'B'} name`)}${f(key + 'WanInterface', 'Physical WAN interface')}${f4(key + 'WanAddress', 'WAN IPv4 address / CIDR', { cidr: true })}${f4(key + 'NextHop', 'Underlay IPv4 next hop (optional)', { help: 'Needed if the remote outer endpoint is not directly connected and no route already exists.' })}${v.mode === 'gre4' ? f4(key + 'TunnelAddress', 'Tunnel IPv4 address / CIDR', { cidr: true }) : f(key + 'TunnelAddress', 'Tunnel IPv6 address / prefix')}${f(key + 'LanInterface', 'LAN interface')}${v.mode === 'gre4' ? f4(key + 'LanAddress', 'LAN IPv4 address / CIDR', { cidr: true }) : f(key + 'LanAddress', 'LAN IPv6 address / prefix')}</fieldset>`,
         )
         .join('')
     );

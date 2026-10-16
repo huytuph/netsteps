@@ -50,10 +50,12 @@ export function readRows(form: HTMLFormElement): Values[] {
         ...row.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
           'input, select, textarea',
         ),
-      ].map((e) => [
-        e.name.split('-').slice(2).join('-'),
-        e.type === 'checkbox' ? ((e as HTMLInputElement).checked ? 'on' : '') : e.value,
-      ]),
+      ]
+        .filter((e) => e.name)
+        .map((e) => [
+          e.name.split('-').slice(2).join('-'),
+          e.type === 'checkbox' ? ((e as HTMLInputElement).checked ? 'on' : '') : e.value,
+        ]),
     ),
   );
 }

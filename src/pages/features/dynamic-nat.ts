@@ -11,7 +11,7 @@ export const feature = {
   mode: 'dynamic',
 
   render(v: Values, rows: Values[]): string {
-    const { f, rf, controls } = formHelpers(v, rows);
+    const { f, f4 } = formHelpers(v, rows);
     return (
       f('pool', 'Translation pool name') +
       area(
@@ -20,7 +20,8 @@ export const feature = {
         v.insideNetwork || '',
         'One aligned IPv4/CIDR per line.',
       ) +
-      `<div class="form-grid">${f('poolStart', 'Translation pool start')}${f('poolEnd', 'Translation pool end')}</div>` +
+      f4('poolStart', 'Translation pool start') +
+      f4('poolEnd', 'Translation pool end') +
       f(
         'poolPrefix',
         'Pool CIDR or subnet mask',
@@ -29,9 +30,9 @@ export const feature = {
       ) +
       f('acl', 'Standard ACL number', 'number', '1–99.') +
       `<div class="form-grid">${f('inside', 'Inside interface')}${f('outside', 'Outside interface')}</div>` +
-      f('insideAddress', 'Inside interface IPv4/CIDR (optional)') +
-      f('outsideAddress', 'Outside interface IPv4/CIDR (optional)') +
-      f('outsideNextHop', 'Outside default-route next hop (optional)') +
+      f4('insideAddress', 'Inside interface IPv4/CIDR (optional)', { cidr: true }) +
+      f4('outsideAddress', 'Outside interface IPv4/CIDR (optional)', { cidr: true }) +
+      f4('outsideNextHop', 'Outside default-route next hop (optional)') +
       '<p class="note">Dynamic NAT uses a pool without overload. Interfaces and routes omitted here must already be configured in the lab.</p>'
     );
   },
