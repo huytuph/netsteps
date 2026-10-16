@@ -2,28 +2,27 @@ import { button, checkbox, esc, field, select, table } from '../components/ui';
 import { renderStepText } from '../components/explanation';
 import { methodLabels, methodOptions, methodWhy, resolveMethod } from '../explanations/methods';
 import type { Lesson } from '../explanations/model';
-import { descriptions, formFields } from '../pages/forms';
+import { formFields } from '../pages/forms';
 import type { AppState, Draft } from './state';
 import type { Entry } from './storage';
-import { tabs } from './storage';
-import { toolMetadata } from './tools';
+import { sections, sectionMetadata, toolFor, locationLabel } from './navigation';
 export function createViews(state: Readonly<AppState>, data: () => Draft) {
   function toolbar() {
     return `<div class="utility-actions">${button('export-all', 'Export backup')}${button('import', 'Import')}<input id="import-file" type="file" accept=".json,application/json" hidden></div>`;
   }
   function dashboard() {
-    const cards = tabs
+    const cards = sections
       .slice(1, -1)
       .map(
         (t, i) =>
-          `<button class="tool-card" data-tab="${esc(t)}"><span class="card-icon">${toolMetadata[t].icon}</span><span class="card-number">${String(i + 1).padStart(2, '0')}</span><h3>${esc(t)}</h3><p>${esc(descriptions[t])}</p><span class="card-link">Open workspace <span>↗</span></span></button>`,
+          `<button class="tool-card" data-section="${esc(t)}"><span class="card-icon">${sectionMetadata[t].icon}</span><span class="card-number">${String(i + 1).padStart(2, '0')}</span><h3>${esc(t)}</h3><p>${esc(sectionMetadata[t].description)}</p><span class="card-link">Open workspace <span>↗</span></span></button>`,
       )
       .join('');
-    return `<section class="hero"><div class="hero-copy"><span class="hero-tag">YOUR PERSONAL NETWORK LAB</span><h2>From inputs<br>to understanding.</h2><p>Calculate, follow the manual steps, and practice.<br>Everything happens right here in your browser.</p><div class="hero-actions"><button data-tab="Subnetting" class="primary">Start subnetting <span>→</span></button><button data-tab="Practice" class="hero-secondary">Try a practice question</button></div></div><div class="network-visual" aria-hidden="true"><div class="visual-caption">172.16.1.0 /24</div><div class="net-root">NETWORK <b>256 addresses</b></div><div class="net-branches"><div>/25<b>128</b></div><div>/26<b>64</b></div><div>/27<b>32</b></div><div>/27<b>32</b></div></div><div class="visual-bottom">ONE NETWORK. MANY POSSIBILITIES.</div></div></section><div class="stats"><div><span>Study tools</span><b>${tabs.length - 2} <small>workspaces</small></b></div><div><span>Saved scenarios</span><b>${state.workspace.saved.length} <small>on this device</small></b></div><div><span>Practice progress</span><b>${state.workspace.score.correct}/${state.workspace.score.attempted} <small>correct</small></b></div><div><span>Connection required</span><b>None <small>for calculations</small></b></div></div><div class="section-title"><h2>Choose your next topic</h2><span>INPUT → WORKING → RESULT</span></div><div class="tool-grid">${cards}</div><div class="dashboard-lists"><section class="panel"><div class="section-title"><h2>Saved scenarios</h2><span>${state.workspace.saved.length}</span></div>${entries(state.workspace.saved, 'saved')}</section><section class="panel"><div class="section-title"><h2>Recent calculations</h2>${button('clear-history', 'Clear history')}</div>${entries(state.workspace.history.slice(0, 10), 'history')}</section></div>`;
+    return `<section class="hero"><div class="hero-copy"><span class="hero-tag">YOUR PERSONAL NETWORK LAB</span><h2>From inputs<br>to understanding.</h2><p>Calculate, follow the manual steps, and practice.<br>Everything happens right here in your browser.</p><div class="hero-actions"><button data-tab="Subnetting" class="primary">Start subnetting <span>→</span></button><button data-tab="Practice" class="hero-secondary">Try a practice question</button></div></div><div class="network-visual" aria-hidden="true"><div class="visual-caption">172.16.1.0 /24</div><div class="net-root">NETWORK <b>256 addresses</b></div><div class="net-branches"><div>/25<b>128</b></div><div>/26<b>64</b></div><div>/27<b>32</b></div><div>/27<b>32</b></div></div><div class="visual-bottom">ONE NETWORK. MANY POSSIBILITIES.</div></div></section><div class="stats"><div><span>Study areas</span><b>${sections.length - 2} <small>workspaces</small></b></div><div><span>Saved scenarios</span><b>${state.workspace.saved.length} <small>on this device</small></b></div><div><span>Practice progress</span><b>${state.workspace.score.correct}/${state.workspace.score.attempted} <small>correct</small></b></div><div><span>Connection required</span><b>None <small>for calculations</small></b></div></div><div class="section-title"><h2>Choose your next topic</h2><span>INPUT → WORKING → RESULT</span></div><div class="tool-grid">${cards}</div><div class="dashboard-lists"><section class="panel"><div class="section-title"><h2>Saved scenarios</h2><span>${state.workspace.saved.length}</span></div>${entries(state.workspace.saved, 'saved')}</section><section class="panel"><div class="section-title"><h2>Recent calculations</h2>${button('clear-history', 'Clear history')}</div>${entries(state.workspace.history.slice(0, 10), 'history')}</section></div>`;
   }
   function entries(list: Entry[], kind: string) {
     return list.length
-      ? `<ul class="entries">${list.map((e) => `<li><button class="entry-open" data-action="open-entry" data-kind="${kind}" data-id="${esc(e.id)}"><strong>${esc(e.name)}</strong><span>${esc(e.tab)} · ${esc(e.summary)}</span><small>${esc(new Date(e.date).toLocaleString())}</small></button>${kind === 'saved' ? button('delete-entry', '×', `aria-label="Delete ${esc(e.name)}" data-id="${esc(e.id)}"`) : ''}</li>`).join('')}</ul>`
+      ? `<ul class="entries">${list.map((e) => `<li><button class="entry-open" data-action="open-entry" data-kind="${kind}" data-id="${esc(e.id)}"><strong>${esc(e.name)}</strong><span>${esc(locationLabel(e.tab, e.values.mode))} · ${esc(e.summary)}</span><small>${esc(new Date(e.date).toLocaleString())}</small></button>${kind === 'saved' ? button('delete-entry', '×', `aria-label="Delete ${esc(e.name)}" data-id="${esc(e.id)}"`) : ''}</li>`).join('')}</ul>`
       : `<div class="empty-list"><span>◈</span><p>${kind === 'saved' ? 'Keep useful scenarios here. Calculate, give your scenario a name, and save it.' : 'Your calculations will appear here when history is enabled.'}</p></div>`;
   }
   function settings() {
@@ -51,7 +50,7 @@ export function createViews(state: Readonly<AppState>, data: () => Draft) {
   }
   function workspacePage() {
     const d = data();
-    return `<div class="workspace-grid"><section class="panel input-panel"><div class="panel-heading"><span class="step-badge">01</span><div><h2>Your inputs</h2><p>${state.tab === 'Practice' ? 'Choose a topic and difficulty.' : 'Enter actual network values.'}</p></div></div><form id="calculator">${formFields(state.tab, d.values, d.rows)}<div class="form-actions"><button type="submit" class="primary">${state.tab === 'Practice' ? 'Generate question' : 'Calculate & explain'} <span>→</span></button>${button('reset-form', 'Reset inputs')}</div></form><div class="privacy-note">◇ Calculated on your device.</div></section><section id="result" class="result-panel" aria-live="polite">${state.tab === 'Practice' ? practiceOutput() : resultOutput()}</section></div>`;
+    return `<div class="workspace-grid"><section class="panel input-panel"><div class="panel-heading"><span class="step-badge">01</span><div><h2>Your inputs</h2><p>${state.tab === 'Practice' ? 'Choose a topic and difficulty.' : 'Enter actual network values.'}</p></div></div><form id="calculator">${formFields(state.tab, d.values, d.rows, toolFor(state.tab, d.values.mode).modes)}<div class="form-actions"><button type="submit" class="primary">${state.tab === 'Practice' ? 'Generate question' : 'Calculate & explain'} <span>→</span></button>${button('reset-form', 'Reset inputs')}</div></form><div class="privacy-note">◇ Calculated on your device.</div></section><section id="result" class="result-panel" aria-live="polite">${state.tab === 'Practice' ? practiceOutput() : resultOutput()}</section></div>`;
   }
   function methodControls(l: Lesson, method: string) {
     return `<div class="explanation-controls">${select(

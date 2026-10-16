@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { startApp } from '../src/app/controller';
 import { defaults, entry, tabs, type Tab, type Values } from '../src/app/storage';
+import { navigationTools, toolFor } from '../src/app/navigation';
 
 let stop: () => void;
 const query = <T extends HTMLElement = HTMLElement>(selector: string) => {
@@ -18,7 +19,13 @@ function input(name: string, value: string, change = false) {
 const submit = () =>
   query('#calculator').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 const value = (name: string) => query<HTMLInputElement>(`[name="${name}"]`).value;
-const nav = (tab: string) => click(`nav [data-tab="${tab}"]`);
+function nav(tab: Tab, mode?: string) {
+  const tool = toolFor(tab, mode);
+  click(`nav [data-section="${tool.section}"]`);
+  if (document.querySelector(`.subtabs [data-tool="${tool.id}"]`))
+    click(`[data-tool="${tool.id}"]`);
+  if (mode && value('mode') !== mode) input('mode', mode, true);
+}
 
 describe('extended number systems', () => {
   it('starts blank, supports octal and preserves independent Base64 drafts', () => {
@@ -107,9 +114,160 @@ afterEach(() => {
 });
 
 describe('application workflows', () => {
+  it('shows exactly eight main tabs and the agreed tool groups', () => {
+    expect(
+      [...document.querySelectorAll('.tabs button')].map((button) => button.textContent),
+    ).toEqual([
+      'Dashboard',
+      'Number Systems',
+      'IP Addressing',
+      'Routing',
+      'LAN Services',
+      'WAN Technologies',
+      'Practice',
+      'Settings',
+    ]);
+    const groups = [
+      ['IP Addressing', ['IPv4 Subnetting', 'IPv6 Addressing', 'VLSM']],
+      ['Routing', ['IPv4 Static Routing', 'IPv6 Static Routing', 'Distance Vector', 'OSPFv3']],
+      ['LAN Services', ['VLAN', 'HSRP', 'DHCP', 'NAT / PAT']],
+      ['WAN Technologies', ['Tunnelling', 'Frame Relay']],
+    ] as const;
+    for (const [section, labels] of groups) {
+      click(`.tabs [data-section="${section}"]`);
+      expect(query('.tabs [aria-current="page"]').textContent).toBe(section);
+      expect(
+        [...document.querySelectorAll('.subtabs button')].map((button) => button.textContent),
+      ).toEqual(labels);
+    }
+    click('.tabs [data-section="Number Systems"]');
+    expect(document.querySelector('.subtabs')).toBeNull();
+  });
+  it.each(navigationTools)('opens the $label tool in $section', (tool) => {
+    click(`.tabs [data-section="${tool.section}"]`);
+    if (document.querySelector(`[data-tool="${tool.id}"]`)) click(`[data-tool="${tool.id}"]`);
+    expect(query('.page-title').textContent).toBe(tool.section);
+    expect(query('.tabs [aria-current="page"]').textContent).toBe(tool.section);
+    if (tool.modes) {
+      expect(tool.modes).toContain(value('mode'));
+      const modeSelect = document.querySelector<HTMLSelectElement>('select[name="mode"]');
+      if (modeSelect)
+        expect([...modeSelect.options].map((option) => option.value)).toEqual(tool.modes);
+      else expect(query<HTMLInputElement>('input[name="mode"]').type).toBe('hidden');
+    }
+  });
+  it('remembers each section and shared-calculator submode without losing draft edits', () => {
+    click('.tabs [data-section="IP Addressing"]');
+    click('[data-tool="ipv6"]');
+    input('mode', 'plan', true);
+    input('base', '2001:db8::/48');
+    input('r-0-name', 'Campus');
+    input('r-0-prefix', '64');
+    click('.tabs [data-section="Routing"]');
+    click('[data-tool="ospfv3"]');
+    input('ospfProcess', '8');
+    input('r-0-router', 'R8');
+    click('[data-tool="static-ipv6"]');
+    input('destination', '2001:db8:20::/64');
+    click('.tabs [data-section="IP Addressing"]');
+    expect(query('.subtabs [aria-current="page"]').textContent).toBe('IPv6 Addressing');
+    expect(value('mode')).toBe('plan');
+    expect(value('base')).toBe('2001:db8::/48');
+    expect(value('r-0-name')).toBe('Campus');
+    click('.tabs [data-section="Routing"]');
+    expect(query('.subtabs [aria-current="page"]').textContent).toBe('IPv6 Static Routing');
+    expect(value('destination')).toBe('2001:db8:20::/64');
+    click('[data-tool="ospfv3"]');
+    expect(value('ospfProcess')).toBe('8');
+    expect(value('r-0-router')).toBe('R8');
+  });
+  it('retains a selected NAT mode while DHCP and HSRP drafts stay separate', () => {
+    click('.tabs [data-section="LAN Services"]');
+    input('r-0-id', '10');
+    click('[data-tool="hsrp"]');
+    input('network', '10.0.0.0/24');
+    click('[data-tool="dhcp"]');
+    input('pool', 'DHCP-LAB');
+    click('[data-tool="nat"]');
+    expect(value('mode')).toBe('nat');
+    input('mode', 'dynamic', true);
+    input('pool', 'PUBLIC-POOL');
+    click('[data-tool="dhcp"]');
+    expect(value('pool')).toBe('DHCP-LAB');
+    click('[data-tool="nat"]');
+    expect(value('mode')).toBe('dynamic');
+    expect(value('pool')).toBe('PUBLIC-POOL');
+    click('[data-tool="hsrp"]');
+    expect(value('network')).toBe('10.0.0.0/24');
+    click('[data-tool="vlan"]');
+    expect(value('r-0-id')).toBe('10');
+  });
+  it('keeps an active result when its already selected main tab or tool is clicked', () => {
+    nav('Subnetting');
+    input('ip', '192.0.2.42');
+    input('prefix', '27');
+    submit();
+    input('scenario-name', 'Still here');
+    click('.tabs [data-section="IP Addressing"]');
+    click('[data-tool="ipv4"]');
+    expect(value('scenario-name')).toBe('Still here');
+    expect(query('.final-panel').textContent).toContain('192.0.2.32');
+  });
+  it('clears remembered navigation together with a full local-data reset', () => {
+    click('.tabs [data-section="LAN Services"]');
+    click('[data-tool="nat"]');
+    input('mode', 'dynamic', true);
+    input('pool', 'OLD-POOL');
+    nav('Settings');
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    click('[data-action="reset-data"]');
+    expect(query('.page-title').textContent).toBe('Dashboard');
+    click('.tabs [data-section="LAN Services"]');
+    expect(query('.subtabs [aria-current="page"]').textContent).toBe('VLAN');
+    click('[data-tool="nat"]');
+    expect(value('mode')).toBe('nat');
+    input('mode', 'dynamic', true);
+    expect(value('pool')).toBe('');
+  });
+  it('opens legacy OSPF saves in Routing and preserves their version-1 IDs', () => {
+    stop();
+    const workspace = defaults();
+    workspace.saved = [
+      entry(
+        'IPv6',
+        { mode: 'ospf', ospfProcess: '1' },
+        [
+          {
+            router: 'R1',
+            routerId: '1.1.1.1',
+            iface: 'Gi0/0',
+            address: '2001:db8::1/64',
+            area: '0',
+            passive: '',
+          },
+        ],
+        'Legacy OSPF',
+        '',
+      ),
+    ];
+    localStorage.setItem('network-study-toolkit-v1', JSON.stringify(workspace));
+    stop = startApp(query<HTMLDivElement>('#app'));
+    expect(query('[data-kind="saved"]').textContent).toContain('Routing · OSPFv3');
+    click('[data-kind="saved"]');
+    expect(query('.page-title').textContent).toBe('Routing');
+    expect(query('.subtabs [aria-current="page"]').textContent).toBe('OSPFv3');
+    expect(value('ospfProcess')).toBe('1');
+    expect(query('.final-panel').textContent).toContain('ipv6 ospf 1 area 0');
+    input('scenario-name', 'New OSPF');
+    click('[data-action="save-scenario"]');
+    const saved = JSON.parse(localStorage.getItem('network-study-toolkit-v1')!);
+    expect(saved.version).toBe(1);
+    expect(saved.saved[1].tab).toBe('IPv6');
+    expect(saved.saved[1].values.mode).toBe('ospf');
+  });
   it.each(tabs)('renders the %s workspace', (tab) => {
     nav(tab);
-    expect(query('.page-title').textContent).toBe(tab);
+    expect(query('.page-title').textContent).toBe(toolFor(tab).section);
     expect(document.body.textContent).not.toContain('undefined');
   });
   const examples: { tab: Tab; mode?: string; fields: Values; expected: string }[] = [
@@ -245,8 +403,7 @@ describe('application workflows', () => {
   it.each(examples)(
     'calculates and explains $tab $mode through the actual form',
     ({ tab, mode, fields, expected }) => {
-      nav(tab);
-      if (mode) input('mode', mode, true);
+      nav(tab, mode);
       for (const [name, text] of Object.entries(fields)) input(name, text);
       submit();
       expect(document.querySelector('[role="alert"]')?.textContent).toBeUndefined();
@@ -277,7 +434,7 @@ describe('application workflows', () => {
     input('base', '2001:db8::/48');
     input('r-0-name', 'Campus');
     input('r-0-prefix', '64');
-    input('mode', 'ospf', true);
+    nav('IPv6', 'ospf');
     expect(value('r-0-router')).toBe('');
     input('ospfProcess', '1');
     input('r-0-router', 'R1');
@@ -286,17 +443,17 @@ describe('application workflows', () => {
     click('[data-action="up"][data-index="1"]');
     expect(value('r-0-router')).toBe('R2');
     click('[data-action="remove-row"][data-index="1"]');
-    input('mode', 'plan', true);
+    nav('IPv6', 'plan');
     expect(value('base')).toBe('2001:db8::/48');
     expect(value('r-0-name')).toBe('Campus');
     expect(document.querySelectorAll('[data-row]')).toHaveLength(1);
-    input('mode', 'ospf', true);
+    nav('IPv6', 'ospf');
     expect(value('r-0-router')).toBe('R2');
     expect(value('ospfProcess')).toBe('1');
     click('[data-action="reset-form"]');
     expect(value('mode')).toBe('ospf');
     expect(value('r-0-router')).toBe('');
-    input('mode', 'plan', true);
+    nav('IPv6', 'plan');
     expect(value('r-0-name')).toBe('Campus');
   });
   it('restores and recalculates version-1 saved scenarios without overwriting their inputs', () => {
@@ -399,7 +556,7 @@ describe('application workflows', () => {
     finish(JSON.stringify(defaults()));
     await text;
     await Promise.resolve();
-    expect(query('.page-title').textContent).toBe('Subnetting');
+    expect(query('.page-title').textContent).toBe('IP Addressing');
     expect(value('ip')).toBe('192.0.2.42');
     expect(value('prefix')).toBe('27');
     nav('Number Systems');
@@ -484,8 +641,8 @@ describe('application workflows', () => {
     expect(calls).toBe(1);
   });
   it('handles navigation clicks on nested dashboard content', () => {
-    click('.tool-card[data-tab="Subnetting"] .card-link span');
-    expect(query('.page-title').textContent).toBe('Subnetting');
+    click('.tool-card[data-section="IP Addressing"] .card-link span');
+    expect(query('.page-title').textContent).toBe('IP Addressing');
   });
   it('resolves unsupported explanation methods before showing or exporting a new result', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);

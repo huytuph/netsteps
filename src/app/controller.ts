@@ -8,6 +8,14 @@ import { descriptions } from '../pages/forms';
 import { createActions } from './actions';
 import { DraftStore } from './drafts';
 import { mergeHistory, mergeWorkspace } from './history';
+import {
+  navigationTools,
+  sections,
+  toolFor,
+  toolsIn,
+  type NavigationTool,
+  type Section,
+} from './navigation';
 import { createAppState, resetResult } from './state';
 import { entry, load, persist, validateWorkspace, type Tab } from './storage';
 import { createViews } from './views';
@@ -16,6 +24,8 @@ export function startApp(root: HTMLDivElement) {
   const loaded = load();
   const state = createAppState(loaded.workspace, loaded.error);
   const drafts = new DraftStore();
+  const lastTools = new Map<Section, NavigationTool>();
+  const lastModes = new Map<string, string>();
   const { toolbar, dashboard, settings, workspacePage, resultOutput, practiceOutput, outputText } =
     createViews(state, data);
   const act = createActions({
@@ -28,6 +38,10 @@ export function startApp(root: HTMLDivElement) {
     notify,
     saveStorage,
     nav,
+    resetNavigation: () => {
+      lastTools.clear();
+      lastModes.clear();
+    },
     run,
     outputText,
   });
@@ -79,16 +93,41 @@ export function startApp(root: HTMLDivElement) {
   }
   function nav(next: Tab) {
     capture();
+    rememberTool();
     state.tab = next;
     resetResult(state, true);
     render();
     window.scrollTo({ top: 0 });
+  }
+  function rememberTool() {
+    const mode = data().values.mode;
+    const current = toolFor(state.tab, mode);
+    lastTools.set(current.section, current);
+    if (mode) lastModes.set(current.id, mode);
+  }
+  function openTool(tool: NavigationTool) {
+    if (toolFor(state.tab, data().values.mode).id === tool.id) return;
+    capture();
+    rememberTool();
+    state.tab = tool.tab;
+    if (tool.modes) {
+      const mode = lastModes.get(tool.id) || drafts.mode(tool.tab);
+      drafts.switchMode(tool.tab, tool.modes.includes(mode) ? mode : tool.modes[0]);
+    }
+    resetResult(state, true);
+    render();
+    window.scrollTo({ top: 0 });
+  }
+  function openSection(section: Section) {
+    if (toolFor(state.tab, data().values.mode).section === section) return;
+    openTool(lastTools.get(section) || toolsIn(section)[0]);
   }
   function render() {
     prepareResult();
     theme();
     root.innerHTML = renderShell({
       tab: state.tab,
+      mode: data().values.mode,
       theme: state.workspace.preferences.theme,
       notice: state.notice,
       description: descriptions[state.tab],
@@ -174,6 +213,18 @@ export function startApp(root: HTMLDivElement) {
   }
   function onClick(event: MouseEvent) {
     if (!(event.target instanceof Element)) return;
+    const sectionLink = event.target.closest<HTMLElement>('[data-section]');
+    if (sectionLink && root.contains(sectionLink)) {
+      const section = sectionLink.dataset.section as Section;
+      if (sections.includes(section)) openSection(section);
+      return;
+    }
+    const toolLink = event.target.closest<HTMLElement>('[data-tool]');
+    if (toolLink && root.contains(toolLink)) {
+      const tool = navigationTools.find((item) => item.id === toolLink.dataset.tool);
+      if (tool) openTool(tool);
+      return;
+    }
     const link = event.target.closest<HTMLElement>('[data-tab]');
     if (link && root.contains(link)) {
       event.preventDefault();

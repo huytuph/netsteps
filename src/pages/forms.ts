@@ -125,11 +125,21 @@ const modes: [string, string][] = [
   ['p2p', 'Point-to-point /31'],
   ['host', 'Host route /32'],
 ];
-export function formFields(tab: Tab, v: Values, rows: Values[]): string {
+export function formFields(
+  tab: Tab,
+  v: Values,
+  rows: Values[],
+  allowedModes?: readonly string[],
+): string {
   const { f } = formHelpers(v, rows);
   const s = (key: string, label: string, options: [string, string][], extra = '') =>
     select(key, label, v[key] || '', options, extra);
-  const mode = (options: [string, string][]) => s('mode', 'Tool', options, 'data-mode');
+  const mode = (options: [string, string][]) => {
+    const choices = allowedModes ? options.filter(([key]) => allowedModes.includes(key)) : options;
+    return choices.length === 1
+      ? `<input type="hidden" name="mode" value="${esc(choices[0][0])}">`
+      : s('mode', 'Tool', choices, 'data-mode');
+  };
   const advanced = featureFor(tab, v)?.render(v, rows) ?? null;
   if (advanced !== null && tab !== 'IPv6' && tab !== 'DHCP/NAT') return advanced;
   if (tab === 'IPv6')

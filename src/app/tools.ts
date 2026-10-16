@@ -3,7 +3,7 @@ export const toolMetadata = {
   Dashboard: { icon: '◈', description: 'Your networking study workspace.' },
   'Number Systems': { icon: '01', description: 'See how every bit, digit and octet is built.' },
   Subnetting: { icon: '▦', description: 'Find the boundaries. Understand the working.' },
-  IPv6: { icon: '⑥', description: 'Expand addresses, plan prefixes, and understand IPv6 routing.' },
+  IPv6: { icon: '⑥', description: 'Analyze IPv6 formats, prefixes, allocations and overlaps.' },
   VLSM: { icon: '⇆', description: 'Give every network room to grow.' },
   'Static Routing': { icon: '↗', description: 'Connect the destination to the next hop.' },
   'VLAN/HSRP': { icon: '◇', description: 'Plan segmented networks and resilient gateways.' },

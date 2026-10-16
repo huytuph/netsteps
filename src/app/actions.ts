@@ -17,6 +17,7 @@ interface ActionContext {
   notify(message: string): void;
   saveStorage(): void;
   nav(tab: Tab): void;
+  resetNavigation(): void;
   run(record?: boolean): void;
   outputText(kind?: string): string;
 }
@@ -31,6 +32,7 @@ export function createActions(context: ActionContext) {
     notify,
     saveStorage,
     nav,
+    resetNavigation,
     run,
     outputText,
   } = context;
@@ -180,6 +182,7 @@ export function createActions(context: ActionContext) {
       ) {
         state.workspace = defaults();
         drafts.clear();
+        resetNavigation();
         state.tab = 'Dashboard';
         resetResult(state, true);
         saveStorage();
